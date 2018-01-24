@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1516780074102.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1023504242",
+    "id" : "6F193644",
+    "lastKnownWriteTime" : 1516780689,
+    "last_content_update" : 1516780689445,
+    "path" : "~/GitHubRepos/iNextModelling/elevation_compartment_iNEXT.R",
+    "project_path" : "elevation_compartment_iNEXT.R",
+    "properties" : {
+        "cursorPosition" : "15,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
