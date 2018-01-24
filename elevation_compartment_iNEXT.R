@@ -26,17 +26,27 @@ elev_banded <- mutate(elev,
 
 ## Create Column SUMS (by species) to prep for List for iNEXT ----
 
-# rowsums by band to get iNEXT vals
+# colums by band to get iNEXT vals
 elev_banded<-elev_banded %>% 
   select(-MountainName, -Elevation, -ForestType, -Date) %>%
   group_by(band) %>%
   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
 
-#rowsums by forest band to get iNEXT vals
+#colsums by forest band to get iNEXT vals
 elev_type<-elev %>% 
   select(-MountainName, -Elevation, -Date) %>%
   group_by(ForestType) %>%
   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
+
+#colsums by mountain AND forest band to get iNEXT vals
+elev_MF<-elev %>% 
+  select(-Elevation, -Date) %>%
+  group_by(MountainName, ForestType) %>%
+  summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
+  # create single column of mountain and type name
+  mutate(MName_FType = paste(MountainName, ForestType, sep = ':'))
+
+
 
 ## Create Lists for iNEXT ----
 
@@ -66,12 +76,37 @@ for (i in 1:type_counter){
 
 names(elev_TYPE_input)<-unique(elev_type$ForestType)
 
+# create MOUNTAIN:TYPE list for iNEXT
+# If we want to estimate lots 5 mountain x n bands and then
+# do regressions....
+MN_FT_counter<-length(unique(elev_MF$MName_FType))
+
+elev_MNFT_input<- list()
+
+for (i in 1:MN_FT_counter){
+  tmp <- as.data.frame(elev_MF[i,-c(1,2,31)])
+  tmp<-tmp[tmp>0]
+  elev_MNFT_input[[i]]<-tmp
+}
+
+names(elev_MNFT_input)<-unique(elev_MF$MName_FType)
+
+# Get Rid of entries with NO SR estimated
+# elev_MNFT_input <- Filter(length, elev_MNFT_input)
+
+# Get Rid of entries with SR < 1 (iNEXT does not work without >2 species)
+elev_MNFT_input <- elev_MNFT_input[lapply(elev_MNFT_input, length)>1]
+
+
 # Run and plot iNEXT ----
 band_mod <- iNEXT(elev_BAND_input, datatype = 'abundance', nboot = 999)
 type_mod <- iNEXT(elev_TYPE_input, datatype = 'abundance', nboot = 999)
+MNFT_mod <- iNEXT(elev_MNFT_input, datatype = 'abundance', nboot = 999)
 
-plot(band_mod)
-plot(type_mod)
+par(mfrow = c(1,3))
+plot(band_mod, type = 1)
+plot(type_mod, type = 1)
+plot(MNFT_mod, type = 1)
 
 ## Working with Compartment Data ----
 
