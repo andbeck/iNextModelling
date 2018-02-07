@@ -55,6 +55,12 @@ plot(Master)
 # collect some information
 MasterDat<-data.frame(NumObs = Master$DataInfo[,2], t(data.frame(Master$AsyEst[1,])))
 
+# reference information for diversity indices
+MasterDat2<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
+                       Observed = c(Master$DataInfo[,2], as.numeric(Master$AsyEst[1:3,1])),
+                       Estimate = c(NA,as.numeric(Master$AsyEst[1:3,2])),
+                       seEstimate = c(NA,as.numeric(Master$AsyEst[1:3,3])))
+
 #==========================================================
 # Cross Validation
 #==========================================================
@@ -63,8 +69,11 @@ MasterDat<-data.frame(NumObs = Master$DataInfo[,2], t(data.frame(Master$AsyEst[1
 iterations<-length(unique(out$Comp_Trans)) 
 
 # set up a collection bin
-CrossV<-data.frame(matrix(NA, iterations, 6))
-names(CrossV)<-c("LeftOut","NumObs","ObsSR","AsymEstSR", "AsymEstSR_SE","AbsDiff")
+CrossV<-data.frame(matrix(NA, iterations, 12))
+names(CrossV)<-c("LeftOut","NumObs","ObsSR",
+                 "AsymEstSR", "AsymEstSR_SE","SR_AbsDiff",
+                 "AsymEstShan", "AsymEstShan_SE", "Shan_AbsDiff",
+                 "AsymEstSimp", "AsymEstSimp_SE", "Simp_AbsDiff")
 
 # Run the Cross Validation and Collect stuff
 for(i in 1:iterations){
@@ -86,8 +95,8 @@ for(i in 1:iterations){
 
 	# AbsDiff: absolute value of difference between estimate and left out
 	if(Obs_Out>0){
-		AbsDiff = abs(filter(JackOut$iNextEst, m == Obs_Out)$qD - SR_Out)
-
+		SR_AbsDiff = abs(filter(JackOut$iNextEst, m == Obs_Out)$qD - SR_Out)
+		# HOW TO CALCULATE THE Diversity indicies???
 	} else
 	{AbsDiff = NA}
 
