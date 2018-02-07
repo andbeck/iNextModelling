@@ -47,7 +47,6 @@ elev_MF<-elev %>%
   mutate(MName_FType = paste(MountainName, ForestType, sep = ':'))
 
 
-
 ## Create Lists for iNEXT ----
 
 # create BAND list for iNEXT
