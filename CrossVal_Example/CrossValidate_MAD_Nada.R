@@ -5,12 +5,9 @@
 # ---------------------------------------
 # setup with libraries
 # ---------------------------------------
-library(dplyr)
-library(readr)
-library(ggplot2)
-library(tidyr)
-library(reshape2)
+library(tidyverse)
 library(iNEXT)
+library(vegan)
 
 # ---------------------------------------
 # get the data
@@ -21,7 +18,7 @@ library(iNEXT)
 # setwd("C:/Users/Nada Badruddin/Google Drive/")
 # #Get data from com
 # Five <- read.csv ("Google Drive/00 PhD/00Thesis/Chapter 1 iNEXT/5Year.csv")
-Five<-read.csv("FiveYr.csv")
+Five<-read.csv("CrossVal_Example/FiveYr.csv")
 
 # quick look at it
 glimpse(Five)
@@ -38,25 +35,22 @@ names(Five)
 # ---------------------------------------
 # Create the summary data for each transect
 # ---------------------------------------
-out<-Five %>% 
+Trans<-Five %>% 
   select(36,9:35) %>% # no vis count
   group_by(Comp_Trans) %>%
 	summarise_all(funs(sum), na.rm = TRUE) # adds up all transects withing compartment - date
 # view it
-out
+Trans
 
 # Run iNEXT on all of the data for this forest type
-AllTrans<-data.frame(t(as.matrix(out[,-1])))
-names(AllTrans)<-as.character(out$Comp_Trans)
+AllTrans<-data.frame(t(as.matrix(Trans[,-1])))
+names(AllTrans)<-as.character(Trans$Comp_Trans)
 AllTrans_use <- rowSums(AllTrans)
 Master<-iNEXT(AllTrans_use)
 plot(Master)
 
-# collect some information
-MasterDat<-data.frame(NumObs = Master$DataInfo[,2], t(data.frame(Master$AsyEst[1,])))
-
-# reference information for diversity indices
-MasterDat2<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
+# Collect Info including diversity indices
+MasterDat<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
                        Observed = c(Master$DataInfo[,2], as.numeric(Master$AsyEst[1:3,1])),
                        Estimate = c(NA,as.numeric(Master$AsyEst[1:3,2])),
                        seEstimate = c(NA,as.numeric(Master$AsyEst[1:3,3])))
@@ -66,51 +60,137 @@ MasterDat2<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
 #==========================================================
 
 # number of transects
-iterations<-length(unique(out$Comp_Trans)) 
+iterations<-length(unique(Trans$Comp_Trans)) 
 
 # set up a collection bin
-CrossV<-data.frame(matrix(NA, iterations, 12))
-names(CrossV)<-c("LeftOut","NumObs","ObsSR",
-                 "AsymEstSR", "AsymEstSR_SE","SR_AbsDiff",
-                 "AsymEstShan", "AsymEstShan_SE", "Shan_AbsDiff",
-                 "AsymEstSimp", "AsymEstSimp_SE", "Simp_AbsDiff")
+# the SR_at_Val calcualte differences AT the value of the left out one
+# the AsymEst compare left out to Asymtotic estimates of rest
+CrossV<-data.frame(matrix(NA, iterations, 11))
+names(CrossV)<-c("LeftOut","NumObs","ObsSR","Obs_Shan", "Obs_Simp",
+                 "SR_at_Val","SR_at_val_AbsDiff",
+                 "Shan_at_Val", "Shan_at_Val_AbsDiff",
+                 "Simp_at_Val", "Simp_at_Val_AbsDiff")
 
 # Run the Cross Validation and Collect stuff
-for(i in 1:iterations){
-	
-	# create the two pieces
-	# 31 transect to use, and 1 left out
-	TransUse<-slice(out, -i)
-	TransOut<-slice(out, i)
-	
-	# get the Obs and SR for the left out transect
-	Obs_Out<-rowSums(TransOut[,-1])
-	SR_Out<-sum(TransOut[,-1]>0)
+for(i in seq_len(iterations)){
 
-	# Fit the model to the Rest
-	JackTrans<-data.frame(t(as.matrix(TransUse[,-1])))
-	names(JackTrans)<-as.character(TransUse$Comp_Trans)
-	JackTrans_use <- rowSums(JackTrans)
-	JackOut<-iNEXT(JackTrans_use, knots = 80) # 80 ensure we get the points
-
-	# AbsDiff: absolute value of difference between estimate and left out
-	if(Obs_Out>0){
-		SR_AbsDiff = abs(filter(JackOut$iNextEst, m == Obs_Out)$qD - SR_Out)
-		# HOW TO CALCULATE THE Diversity indicies???
+  # create the two pieces
+	# n transect to use, and 1 left out
+	
+  Out_Trans <- slice(Trans, i) # left out transect
+  In_Trans <- slice(Trans, -i) # all other transects
+	
+	# get the Observations, SR for the left out transect
+	
+	Out_Obs <- rowSums(Out_Trans[,-1]) # total number of observations
+	Out_SR <- sum(Out_Trans[,-1]>0) # total number of species
+  
+	# get the diversity metrics for the left out transect
+	
+	Out_Div <- Out_Trans %>% select(-1) %>% as.numeric() # make the observations numeric
+	Out_Div <- Out_Div[Out_Div>0] # simplify to length = species richness (all>0)
+	
+	# use the Estimators from Chao if diversity >1
+	# otherwise it will be 0 or 1.
+	
+  if(sum(Out_Div>0)>1){
+	  Out_Simp <- ChaoSimpson(Out_Div)$Estimator
+	  Out_Shan <- ChaoShannon(Out_Div)$Estimator
 	} else
-	{AbsDiff = NA}
+  {
+    Out_Simp <- sum(Out_Div>0)
+    Out_Shan <- sum(Out_Div>0)
+  }  
+  
+  # Fit the model to the data missing the one left out
+	JackTrans<-data.frame(t(as.matrix(In_Trans[,-1])))
+	names(JackTrans)<-as.character(In_Trans$Comp_Trans)
+	JackTrans_use <- rowSums(JackTrans)
+	
+	# 80 ensure we get the points around the m values we need to match
+	# the left out one to an estimate.
+	# specify q = 0,1,2 to get SR, Shan and Simpson diversity estimates
+	Jack_Result<-iNEXT(JackTrans_use, q=c(0,1,2), knots = 80) 
+  
+	# isolate the SR, Shan and Simp informations
+	JackOutSR <- filter(Jack_Result$iNextEst, order == 0)
+  JackOutShan <- filter(Jack_Result$iNextEst, order == 1)
+  JackOutSimp <- filter(Jack_Result$iNextEst, order == 2)
+  
+	# AbsDiffs: absolute value of difference between estimate and left out
 
-
-	# collect and add to collector bin
+  # Estimates at Observation number from left out transect
+  # if Out_Obs>0 and Out_SR > 1, there are observations of 2+ species
+  # otherwise, if SR ==1, make SR = 1, Shannon and Simpson = NA
+  
+  if(Out_Obs>0&Out_SR>1){
+  SR_at_Val <- filter(JackOutSR, m == Out_Obs) %>% select(qD) %>% distinct()
+  Shan_at_Val <- filter(JackOutShan, m == Out_Obs) %>% select(qD) %>% distinct()
+  Simp_at_Val <- filter(JackOutSimp, m == Out_Obs) %>% select(qD) %>% distinct()
+  } else {
+    SR_at_Val <- ifelse(Out_SR==1,1,NA)
+    Shan_at_Val <- NA
+    Simp_at_Val <- NA
+  }
+  
+  # Absolute Differences
+  # Species Richness: get the estimate of SR at the number of observations 
+  # in the left out transect (Obs_Out) and subtract it from the Observed SR.
+  # SR_AbsDiff is NA if SR in left out transect is 0.
+  
+    if(Out_SR>1){
+    SR_AbsDiff <- abs(SR_at_Val - Out_SR)
+	  } else
+		  {SR_AbsDiff = NA}
+  
+  # Shannon Diversity: get the estimate of Shannon at the number of observations
+  # in the left out transect (Obs_Out) and subtract from Observerd Shannon
+  # Shan_AbsDiff is NA if there are < 2 species
+  if(is.na(Shan_at_Val)){
+    Shan_AbsDiff <- NA
+  } else {
+    Out_Shan <- ChaoShannon(Out_Div)$Estimator
+    Shan_AbsDiff <- abs(Shan_at_Val - Out_Shan)
+    }
+  
+  # Simpson Diversity: get the estimate of Simpson at the number of observations
+  # in the left out transect (Obs_Out) and subtract from Observerd Simpson
+  # Simp_AbsDiff is NA if there are < 2 species
+  if(is.na(Simp_at_Val)){
+    Simp_AbsDiff <- NA
+  } else {
+    Out_Simp <- ChaoSimpson(Out_Div)$Estimator
+    Simp_AbsDiff <- abs(Simp_at_Val - Out_Simp)
+  }
+  
+  
+  # collect and add to collector bin
 	CrossV[i,]<-c(
-		as.character(out$Comp_Trans[i]),
-		JackOut$DataInfo[,2], 
-		JackOut$AsyEst[1,1],
-		JackOut$AsyEst[1,2],
-		JackOut$AsyEst[1,3],
-		AbsDiff
+		# transect out
+	  as.character(out$Comp_Trans[i]),
+		# observation in left out
+	  Out_Obs,
+		# SR in Left Out
+		Out_SR,
+		# Shannon in left out
+		Out_Shan,
+		# Simpson in left out
+		Out_Simp,
+		# Estimated SR from rest of transects, at Observations from left out transect
+    SR_at_Val,
+		SR_AbsDiff,
+		# Estimated Shannon from rest of transects, at Observations from left out transect
+		Shan_at_Val,
+		# Shannon Div differnce
+		Shan_AbsDiff,
+		# Estimated Simpson from rest of transects, at Observations from left out transect
+		Simp_at_Val,
+		# Simpson Div difference
+		Simp_AbsDiff
 		)
 }
+CrossV
+
 
 # --------------------------------------------
 # This is all of the Cross Validated data
