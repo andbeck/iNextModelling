@@ -120,25 +120,25 @@ for(i in seq_len(iterations)){
 	# AbsDiffs: absolute value of difference between estimate and left out
 
   # Estimates at Observation number from left out transect
-  # if Out_Obs>0 and Out_SR > 1, there are observations of 2+ species
-  # otherwise, if SR ==1, make SR = 1, Shannon and Simpson = NA
+  # if Out_Obs>0 and Out_SR >= 1, Calcuate all at Val because 2+ species
   
-  if(Out_Obs>0&Out_SR>1){
-  SR_at_Val <- filter(JackOutSR, m == Out_Obs) %>% select(qD) %>% distinct()
-  Shan_at_Val <- filter(JackOutShan, m == Out_Obs) %>% select(qD) %>% distinct()
-  Simp_at_Val <- filter(JackOutSimp, m == Out_Obs) %>% select(qD) %>% distinct()
+  if(Out_Obs>0&Out_SR>=1){
+    SR_at_Val <- filter(JackOutSR, m == Out_Obs) %>% select(qD) %>% distinct()
+    Shan_at_Val <- filter(JackOutShan, m == Out_Obs) %>% select(qD) %>% distinct()
+    Simp_at_Val <- filter(JackOutSimp, m == Out_Obs) %>% select(qD) %>% distinct()
+    
   } else {
-    SR_at_Val <- ifelse(Out_SR==1,1,NA)
+    SR_at_Val <- ifelse(Out_SR == 1, filter(JackOutSR, m == Out_Obs) %>% select(qD) %>% distinct(), NA)
     Shan_at_Val <- NA
     Simp_at_Val <- NA
-  }
+    }
   
   # Absolute Differences
   # Species Richness: get the estimate of SR at the number of observations 
   # in the left out transect (Obs_Out) and subtract it from the Observed SR.
   # SR_AbsDiff is NA if SR in left out transect is 0.
   
-    if(Out_SR>1){
+    if(Out_SR>=1){
     SR_AbsDiff <- abs(SR_at_Val - Out_SR)
 	  } else
 		  {SR_AbsDiff = NA}
@@ -146,7 +146,7 @@ for(i in seq_len(iterations)){
   # Shannon Diversity: get the estimate of Shannon at the number of observations
   # in the left out transect (Obs_Out) and subtract from Observerd Shannon
   # Shan_AbsDiff is NA if there are < 2 species
-  if(is.na(Shan_at_Val)){
+  if(Out_SR <= 1){
     Shan_AbsDiff <- NA
   } else {
     Out_Shan <- ChaoShannon(Out_Div)$Estimator
@@ -156,13 +156,12 @@ for(i in seq_len(iterations)){
   # Simpson Diversity: get the estimate of Simpson at the number of observations
   # in the left out transect (Obs_Out) and subtract from Observerd Simpson
   # Simp_AbsDiff is NA if there are < 2 species
-  if(is.na(Simp_at_Val)){
+  if(Out_SR <=1){
     Simp_AbsDiff <- NA
   } else {
     Out_Simp <- ChaoSimpson(Out_Div)$Estimator
     Simp_AbsDiff <- abs(Simp_at_Val - Out_Simp)
   }
-  
   
   # collect and add to collector bin
 	CrossV[i,]<-c(
@@ -191,37 +190,39 @@ for(i in seq_len(iterations)){
 }
 CrossV
 
-
-# --------------------------------------------
-# This is all of the Cross Validated data
-# (make numeric things numeric)
-# --------------------------------------------
-CrossV <-CrossV %>%
-	mutate(NumObs = as.numeric(NumObs),
-			ObsSR = as.numeric(ObsSR),
-			AsymEstSR = as.numeric(AsymEstSR),
-			AsymEstSR_SE = as.numeric(AsymEstSR_SE),
-			AbsDiff = as.numeric(AbsDiff))
-
-CrossV
-
 #==========================================================
 # FINAL STEPS: Calculate the ACCURACY and PRECISION stats
 #==========================================================
 
 # ----------------------------------------------------------------
-# this is the 'ACCURACY' stat - Mean Absolute Difference
-# sum the absouite differences and divide by the number of non-NA
+# this is the 'ACCURACY' stat - Mean Absolute Error
+# sum the absolute differences and divide by the number of non-NA
 # ----------------------------------------------------------------
-MAD<-sum(na.omit(CrossV$AbsDiff))/sum(!is.na(CrossV$AbsDiff))
-MAD
-
+MAE <- CrossV %>%
+  select(SR_at_val_AbsDiff, Shan_at_Val_AbsDiff, Simp_at_Val_AbsDiff) %>%
+  mutate_all(funs(as.numeric)) %>%
+  summarise_all(.funs = function(x) mean(x, na.rm = TRUE)) %>%
+  gather(DiversityMetric, MAE)
+  
 # this is the number of transects/plots with NO fireflies sampled
-NonEstimableAD <- sum(is.na(CrossV$AbsDiff))
-NonEstimableAD
+SampleSize <- CrossV %>%
+  select(SR_at_val_AbsDiff, Shan_at_Val_AbsDiff, Simp_at_Val_AbsDiff) %>%
+  mutate_all(funs(as.numeric)) %>%
+  summarise_all(.funs = function(x) sum(!is.na(x))) %>%
+  gather(DiversityMetric, SS)
+
+MAE <- cbind(MAE, No.Trials = SampleSize$SS)
+
+MAE
 
 # ----------------------------------------------------------------
-# this is the PRECISION stat (the standar error of the Asymptotic estimator)
-MasterDat$Est_s.e.
+# These is the PRECISION stat (the standar error of the Asymptotic estimator)
+Precisions <- Master$AsyEst %>%
+  as.data.frame %>%
+  select(Estimator, Est_s.e.) %>%
+  rename(SE = Est_s.e.)
+
+Precisions  
+
 # ----------------------------------------------------------------
 
