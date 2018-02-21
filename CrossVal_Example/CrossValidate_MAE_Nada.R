@@ -7,7 +7,6 @@
 # ---------------------------------------
 library(tidyverse)
 library(iNEXT)
-library(vegan)
 
 # ---------------------------------------
 # get the data
@@ -42,18 +41,19 @@ Trans<-Five %>%
 # view it
 Trans
 
-# Run iNEXT on all of the data for this forest type
-AllTrans<-data.frame(t(as.matrix(Trans[,-1])))
-names(AllTrans)<-as.character(Trans$Comp_Trans)
-AllTrans_use <- rowSums(AllTrans)
+# create single data frame with sum of counts of all species in all transects
+AllTrans_use <- Trans %>% 
+  # isolate the species
+  select(-Comp_Trans) %>%
+  # sum by columns
+  summarise_all(funs(sum)) %>%
+  # force to dataframe
+  as.data.frame()
+
+# use the AllTrans_use to run iNEXT for baseline
+# output for this set of data
 Master<-iNEXT(AllTrans_use)
 plot(Master)
-
-# Collect Info including diversity indices
-MasterDat<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
-                       Observed = c(Master$DataInfo[,2], as.numeric(Master$AsyEst[1:3,1])),
-                       Estimate = c(NA,as.numeric(Master$AsyEst[1:3,2])),
-                       seEstimate = c(NA,as.numeric(Master$AsyEst[1:3,3])))
 
 #==========================================================
 # Cross Validation
@@ -63,8 +63,9 @@ MasterDat<-data.frame(Info = c("Observations", "SR", "Shan", "Simp"),
 iterations<-length(unique(Trans$Comp_Trans)) 
 
 # set up a collection bin
-# the SR_at_Val calcualte differences AT the value of the left out one
-# the AsymEst compare left out to Asymtotic estimates of rest
+# the SR_at_Val are the values estimated AT the number of observations
+# of the left out transect
+
 CrossV<-data.frame(matrix(NA, iterations, 11))
 names(CrossV)<-c("LeftOut","NumObs","ObsSR","Obs_Shan", "Obs_Simp",
                  "SR_at_Val","SR_at_val_AbsDiff",
