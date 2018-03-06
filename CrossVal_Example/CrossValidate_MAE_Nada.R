@@ -28,7 +28,7 @@ unique(Five$CompartmentName)
 # ---------------------------------------
 
 # create unique identifier of transect
-Five<-mutate(Five, Comp_Trans = with(Five, paste(CompartmentName,TransectNo, sep = ":")))
+Five<-mutate(Five, Comp_Trans = paste(CompartmentName,TransectNo, sep = ":"))
 names(Five)
 
 # ---------------------------------------
@@ -37,7 +37,7 @@ names(Five)
 Trans<-Five %>% 
   select(36,9:35) %>% # no vis count
   group_by(Comp_Trans) %>%
-	summarise_all(funs(sum), na.rm = TRUE) # adds up all transects withing compartment - date
+	summarise_all(funs(sum), na.rm = TRUE) # creates a vector of obs/species for each transect
 # view it
 Trans
 
@@ -47,8 +47,8 @@ AllTrans_use <- Trans %>%
   select(-Comp_Trans) %>%
   # sum by columns
   summarise_all(funs(sum)) %>%
-  # force to dataframe
-  as.data.frame()
+  # force to a numeric vector (single site)
+  as.numeric()
 
 # use the AllTrans_use to run iNEXT for baseline
 # output for this set of data
@@ -76,17 +76,17 @@ names(CrossV)<-c("LeftOut","NumObs","ObsSR","Obs_Shan", "Obs_Simp",
 for(i in seq_len(iterations)){
 
   # create the two pieces
-	# n transect to use, and 1 left out
+	# n transects to use, and 1 left out
 	
   Out_Trans <- slice(Trans, i) # left out transect
   In_Trans <- slice(Trans, -i) # all other transects
 	
 	# get the Observations, SR for the left out transect
 	
-	Out_Obs <- rowSums(Out_Trans[,-1]) # total number of observations
-	Out_SR <- sum(Out_Trans[,-1]>0) # total number of species
+	Out_Obs <- select(Out_Trans, -1) %>% rowSums() # total number of observations in left out
+	Out_SR <- sum(Out_Trans[,-1]>0) # total number of species in left out
   
-	# get the diversity metrics for the left out transect
+	# Prep to get the diversity metrics for the left out transect
 	
 	Out_Div <- Out_Trans %>% select(-1) %>% as.numeric() # make the observations numeric
 	Out_Div <- Out_Div[Out_Div>0] # simplify to length = species richness (all>0)
@@ -121,7 +121,9 @@ for(i in seq_len(iterations)){
 	# AbsDiffs: absolute value of difference between estimate and left out
 
   # Estimates at Observation number from left out transect
-  # if Out_Obs>0 and Out_SR >= 1, Calcuate all at Val because 2+ species
+  # if Out_Obs>0 and Out_SR >= 1  (2+ species), find SR, Shan and Simp at Obs Number; 
+  # otherwise find SR ar Obs Number of SR = 1, and set Shan/Simp to NA, 
+  # or set all to NA if empty transect
   
   if(Out_Obs>0&Out_SR>=1){
     SR_at_Val <- filter(JackOutSR, m == Out_Obs) %>% select(qD) %>% distinct()
@@ -167,7 +169,7 @@ for(i in seq_len(iterations)){
   # collect and add to collector bin
 	CrossV[i,]<-c(
 		# transect out
-	  as.character(out$Comp_Trans[i]),
+	  as.character(Trans$Comp_Trans[i]),
 		# observation in left out
 	  Out_Obs,
 		# SR in Left Out
