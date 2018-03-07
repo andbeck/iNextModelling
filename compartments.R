@@ -3,16 +3,16 @@
 ## libraries ----
 library(iNEXT)
 library(tidyverse)
-library(gridExtra)
-library(ggfortify)
+
+library(gridExtra) # multi-panel ggplots
+library(ggfortify) # diagnostics for models
+library(ggrepel) # nice labelling of points
 
 ## Step 0: data import ----
 
 # forest compartment
 compart <- read.csv('SpeciesAdultData/All_DTC2.csv')
 habitat <- read.csv('SpeciesAdultData/DTC-AverageHabitatCompt-Age.csv')
-
-habitat <- mutate(habitat, No.WaterBodies = factor(No.WaterBodies))
 
 str(compart)
 str(habitat)
@@ -151,11 +151,48 @@ Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))
 
 grid.arrange(SR_plot, Simp_plot)
 
+# habitat plots ----
+SR_canopy_closure <- ggplot(SR_data, aes(x = canopy_closure, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Canopy Closure",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_leaf_litter_depth <- ggplot(SR_data, aes(x = leaf_litter_depth, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Leaf Litter Depth",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_understory_height <- ggplot(SR_data, aes(x = understory_height, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Understory Height",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_No.WaterBodies <- ggplot(SR_data, aes(x = No.WaterBodies, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "No.WaterBodies",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
+             SR_understory_height, SR_No.WaterBodies,
+             ncol = 2)
+
+
+
+
+
 ## exploratory modelling ----
 
 # linear model with all terms.  log transforming the Estimator may be justified
-mod <- lm(log(diversity_estimate) ~ compartment_age + 
-            canopy_closure + leaf_litter_depth + understory_height,
+mod <- lm((diversity_estimate) ~ compartment_age + 
+            canopy_closure + leaf_litter_depth + understory_height + No.WaterBodies,
             data = SR_data)
 
 autoplot(mod, smooth.colour = NA)
