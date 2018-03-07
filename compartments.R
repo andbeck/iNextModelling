@@ -12,8 +12,11 @@ library(ggfortify)
 compart <- read.csv('SpeciesAdultData/All_DTC2.csv')
 habitat <- read.csv('SpeciesAdultData/DTC-AverageHabitatCompt-Age.csv')
 
+habitat <- mutate(habitat, No.WaterBodies = factor(No.WaterBodies))
+
 str(compart)
 str(habitat)
+
 
 # Step 1: calculate column sums by forest category and compartment name to get iNEXT vals ----
 
@@ -22,12 +25,25 @@ str(habitat)
 # sort and summarise_all creates column sums
 # age a new column that combines age and name (e.g. the three compartments within each age category)
 
-comp_age<-compart %>% 
+comp_age <- compart %>% 
   filter(!str_detect(ForestType, "twice")) %>%
   select(ForestCategory, CompartmentName, Sp.01:Sp.27) %>%
   group_by(ForestCategory, CompartmentName) %>%
   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
-  mutate(Age_Name = paste(ForestCategory, CompartmentName, sep = ':'))
+  mutate(Age_Name = paste(ForestCategory, CompartmentName, sep = ':')) %>% 
+  mutate(ActualAge = case_when(CompartmentName %in% c("UTT35", "UTT41") ~ 2,
+                               CompartmentName %in% c("PB87", "PS52") ~5,
+                               CompartmentName == "JU93" ~ 6,
+                               CompartmentName == "B12" ~ 10,
+                               CompartmentName == "JU31Y" ~ 11,
+                               CompartmentName == "JI52" ~ 20,
+                               CompartmentName == "JI4" ~ 23,
+                               CompartmentName == "B17" ~ 24,
+                               CompartmentName %in% c("B18", "B19") ~ 30,
+                               CompartmentName == "JI64" ~ 31,
+                               CompartmentName %in% c("B18", "BT7") ~ 32,
+                               CompartmentName == "JU31N" ~ 41,
+                               CompartmentName %in% c("JU100", "PS26", "UTT27") ~ 0))
 
 # Step 2: create Age based list for iNEXT ----
 
@@ -38,7 +54,7 @@ age_counter<-length(comp_age$CompartmentName)
 compartment_input<- list()
 
 # isolate the species count data for each age-compartment
-for (i in 1:age_counter){
+for (i in seq_len(age_counter)){
   tmp <- as.data.frame(comp_age[i,]) # get a single compartment
   tmp <- select(tmp, -ForestCategory, - CompartmentName, -Age_Name) # isolate the species data
   tmp <- tmp[tmp>0] # clean away any 0's
@@ -55,19 +71,14 @@ length(compartment_use)
 #  Step 3: iNEXT modelling happens here -----
 
 # run iNEXT (it works on a list)
-# some odd errors, as all sites have more than 1
+# ignore warnings.
 compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
 
-
 # What we really want to do is to compute the estimate at a fixed min coverage
-
-# at the minimum coverage
-coverage_min_diversity <- estimateD(compartment_use, base = 'coverage') %>% 
+# at the minimum coverage (level  = NULL)
+# set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
+coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = NULL) %>% 
   rename(Site = site) 
-
-# at 80% coverage (extrapolated)
-#coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = 0.8) %>% 
-#  rename(Site = site)
 
 # visualise the results
 # feel free to create more than one version of this!
@@ -76,43 +87,69 @@ plot(compartment_mod, type = 1)
 plot(compartment_mod, type = 3)
 
 # Step 4: Collect Asymptotic estimates for downstream analyses and add habitat data ----
-diversity_data_obs <- compartment_mod$AsyEst %>% arrange(as.character(Site))
-diversity_data_cov <- coverage_min_diversity %>% arrange(as.character(Site))
+diversity_data_observations <- compartment_mod$AsyEst %>% arrange(as.character(Site))
+diversity_data_coverage <- coverage_min_diversity %>% arrange(as.character(Site))
   
-unique(diversity_data_cov$Site)
+# organise the habitat data ----
+# some compartments are not represented in the iNEXT data (no species)
 habitat2 <- arrange(habitat, Compartment) %>% rename(Site = Compartment)
-habitat_use <- filter(habitat2, Site %in% diversity_data_cov$Site)
+habitat_use <- filter(habitat2, Site %in% levels(diversity_data_coverage$Site))
 names(habitat_use)
 
-# get everything together.  We need the habitat data represented three times each to match the 
-# diversity data, which has the sites 3 times each for SR, Shannon and Simpson
+# get the various parts of iNEXT and habitat data together.----
+# We need the habitat data represented three times each to match the 
+# diversity data, which has estimates of SR, Shannon and Simpson for each compartment
 
-df <- data.frame(diversity_data_cov, 
+df <- data.frame(diversity_data_coverage, 
                  compartment_age = rep(habitat_use$ForestAge, each= 3),
                  canopy_closure = rep(habitat_use$CanopyClosure, each = 3),
                  leaf_litter_depth = rep(habitat_use$LeafLitterDepth, each = 3),
-                 understory_height = rep(habitat_use$HerbPlantHeight, each = 3)) %>% 
-  rename(coverage = SC) %>% rename(diversity_estimate = qD)
+                 understory_height = rep(habitat_use$HerbPlantHeight, each = 3),
+                 No.WaterBodies = rep(habitat_use$No.WaterBodies, each = 3),
+                 WaterDistance = rep(habitat_use$WaterDistance, each = 3)) %>% 
+  rename(coverage = SC) %>% 
+  rename(diversity_estimate = qD)
 
+# quick check
 head(df)
 
 ## Exploratory Plotting of diversity and habitat data ----
 
+# Isolate Species Richness data (order/q = 0)
+# temporarily remove Unlogged?  (set at age 0 above)
 SR_data <- filter(df, order == 0) %>% filter(compartment_age!='Unlogged') %>% 
-  mutate(compartment_age = as.numeric(as.character(SR_data$compartment_age)))
+  mutate(compartment_age = as.numeric(as.character(compartment_age)))
 
-SR_logged <- filter(df, order == 0) %>% filter(compartment_age =='Unlogged')
+SR_unlogged <- filter(df, order == 0) %>% filter(compartment_age =='Unlogged')
+
+Simp_data <- filter(df, order == 2) %>% filter(compartment_age!='Unlogged') %>% 
+  mutate(compartment_age = as.numeric(as.character(compartment_age)))
+
+Simp_unlogged <- filter(df, order == 2) %>% filter(compartment_age =='Unlogged')
 
 head(SR_data)
 tail(SR_data)
 
 # fascinating groups....
-ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
+SR_plot <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
   geom_point(size = 5)+
-  geom_point(data = SR_logged, aes(x = 50, y = diversity_estimate), colour = 'red', size = 5)+
-  geom_text(aes(label=Site),hjust=0.5, vjust=-2)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  geom_point(data = SR_unlogged, aes(x = 50, y = diversity_estimate), colour = 'red', size = 5)+
+  labs(x = "Compartment Age (Years Since Last Logging)",
+       y = "Species Richness Estimate") +
+  annotate('text', x = 48, y = 3, angle = 90, label = "Unlogged", col = 'red')+
   theme_bw()
 
+Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  geom_point(data = Simp_unlogged, aes(x = 50, y = diversity_estimate), colour = 'red', size = 5)+
+  labs(x = "Compartment Age (Years Since Last Logging)",
+       y = "Simpsons Diversity Estimate") +
+  annotate('text', x = 48, y = 2, angle = 90, label = "Unlogged", col = 'red') +
+  theme_bw()
+
+grid.arrange(SR_plot, Simp_plot)
 
 ## exploratory modelling ----
 
