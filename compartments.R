@@ -8,6 +8,9 @@ library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
 
+library(MASS) # stepAIC multiple regression tools
+library(heplots) # effect sizes +
+
 ## Step 0: data import ----
 
 # forest compartment
@@ -184,10 +187,6 @@ grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
              SR_understory_height, SR_No.WaterBodies,
              ncol = 2)
 
-
-
-
-
 ## exploratory modelling ----
 
 # linear model with all terms.  log transforming the Estimator may be justified
@@ -200,6 +199,12 @@ autoplot(mod, smooth.colour = NA)
 # signficnant (almost) age and leaf litter.
 # log transformation removes age.
 summary(mod)
+
+mod_step <- stepAIC(mod)
+summary(mod_step)
+
+etasq(mod, anova = TRUE)
+etasq(mod_step, anova = TRUE)
 
 # plot model results ----
 # Step 1
