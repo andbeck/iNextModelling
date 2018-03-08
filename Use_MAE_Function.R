@@ -19,7 +19,7 @@ source('Nada_Function_MAE.R')
 # just give them each a name
 # IGNORE THIS: Five<-read.csv("CrossVal_Example/FiveYr.csv")
 
-Five<-read.csv("CrossVal_Example/FiveYr.csv")
+Five<-read.csv("FiveYr.csv")
 
 # quick look at them
 glimpse(Five)

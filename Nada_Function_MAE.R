@@ -14,6 +14,12 @@ AccPres <- function(data, ...){
     group_by(Comp_Trans) %>%
     summarise_all(funs(sum), na.rm = TRUE) # adds up all transects within compartment - date
   
+  AllData <- Trans %>% select(-Comp_Trans) %>% 
+    summarise_all(funs(sum)) %>% 
+    as.numeric()
+  
+  Master <- iNEXT(AllData)
+  
   # view it
   # Trans
   
@@ -179,13 +185,14 @@ AccPres <- function(data, ...){
   
   # ----------------------------------------------------------------
   # These is the PRECISION stat (the standar error of the Asymptotic estimator)
+  
   Precisions <- Master$AsyEst %>%
     as.data.frame %>%
     select(Estimator, Est_s.e.) %>%
     rename(SE = Est_s.e.)
   
-  cat("SampleSize_MAE is the number of transects with estimates of SR > 1", "/n")
-  cat("and SR>=2 for Shannon and Simpson")
+  cat("SampleSize_MAE is the number of transects with estimates of SR > 1", "\n")
+  cat("and SR>=2 for Shannon and Simpson", "\n","\n")
   
   return(data.frame(Precisions, MAE = MAE$MAE, SampleSize_MAE = SampleSize$SS))
 }
