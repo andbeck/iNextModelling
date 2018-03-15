@@ -42,7 +42,7 @@ AccPres <- function(data, ...){
   
   # Run the Cross Validation and Collect stuff
   for(i in seq_len(iterations)){
-    
+    cat(i)
     # create the two pieces
     # n transects to use, and 1 left out
     
@@ -79,7 +79,7 @@ AccPres <- function(data, ...){
     # 80 ensure we get the points around the m values we need to match
     # the left out one to an estimate.
     # specify q = 0,1,2 to get SR, Shan and Simpson diversity estimates
-    Jack_Result<-iNEXT(JackTrans_use, q=c(0,1,2), knots = 80) 
+    Jack_Result<-iNEXT(JackTrans_use, q=c(0,1,2), knots = 100) 
     
     # isolate the SR, Shan and Simp informations
     JackOutSR <- filter(Jack_Result$iNextEst, order == 0)

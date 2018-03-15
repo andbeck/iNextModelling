@@ -20,10 +20,14 @@ source('Nada_Function_MAE.R')
 # IGNORE THIS: Five<-read.csv("CrossVal_Example/FiveYr.csv")
 
 Five<-read.csv("FiveYr.csv")
+TwFivePlus <- read.csv("./CrossVal_Example/More25Year.csv")
 
 # quick look at them
 glimpse(Five)
 unique(Five$CompartmentName)
+
+glimpse(TwFivePlus)
+unique(TwFivePlus$CompartmentName)
 
 # ---------------------------------------
 # Use the function on the  data frame to retrieve 
@@ -31,4 +35,4 @@ unique(Five$CompartmentName)
 # This will take ~ 30 seconds
 # it will print some errors too... 
 
-AccPres(Five)
+AccPres(TwFivePlus)
