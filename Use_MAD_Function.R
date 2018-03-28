@@ -11,7 +11,7 @@ library(iNEXT)
 # this grabs the function and loads it into R's brain
 # to use.
 
-source('Nada_Function_MAE.R')
+source('Nada_Function_MAD.R')
 
 # ---------------------------------------
 # get the data

@@ -29,12 +29,15 @@ Five <- read.csv ("Google Drive/00 PhD/00Thesis/Chapter 1 iNEXT/25YearRemoveJI41
 glimpse(Five)
 unique(Five$CompartmentName)
 
+TwFivePlus <- read.csv("./CrossVal_Example/More25Year.csv")
+
 # ---------------------------------------
 # Here are some adjustments to the data
 # ---------------------------------------
 
 # create unique identifier of transect
 Five<-mutate(Five, Comp_Trans = with(Five, paste(CompartmentName,TransectNo, sep = ":")))
+Five<-mutate(TwFivePlus, Comp_Trans = with(TwFivePlus, paste(CompartmentName,TransectNo, sep = ":")))
 names(Five)
 
 # ---------------------------------------
@@ -85,7 +88,7 @@ for(i in 1:iterations){
 	JackTrans<-data.frame(t(as.matrix(TransUse[,-1])))
 	names(JackTrans)<-as.character(TransUse$Comp_Trans)
 	JackTrans_use <- rowSums(JackTrans)
-	JackOut<-iNEXT(JackTrans_use, knots = 80) # 80 ensure we get the points
+	JackOut<-iNEXT(JackTrans_use, knots = 100) # 80 ensure we get the points
 
 	# AbsDiff: absolute value of difference between estimate and left out
 	if(Obs_Out>0){

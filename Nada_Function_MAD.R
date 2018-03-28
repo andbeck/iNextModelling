@@ -42,7 +42,7 @@ AccPres <- function(data, ...){
   
   # Run the Cross Validation and Collect stuff
   for(i in seq_len(iterations)){
-    cat(i)
+    cat(paste(i,"._.", sep = ""))
     # create the two pieces
     # n transects to use, and 1 left out
     
@@ -170,11 +170,11 @@ AccPres <- function(data, ...){
   # this is the 'ACCURACY' stat - Mean Absolute Error
   # sum the absolute differences and divide by the number of non-NA
   # ----------------------------------------------------------------
-  MAE <- CrossV %>%
+  MAD <- CrossV %>%
     select(SR_at_val_AbsDiff, Shan_at_Val_AbsDiff, Simp_at_Val_AbsDiff) %>%
     mutate_all(funs(as.numeric)) %>%
     summarise_all(.funs = function(x) mean(x, na.rm = TRUE)) %>%
-    gather(DiversityMetric, MAE)
+    gather(DiversityMetric, MAD)
   
   # this is the number of transects/plots with NO fireflies sampled
   SampleSize <- CrossV %>%
@@ -191,8 +191,8 @@ AccPres <- function(data, ...){
     select(Estimator, Est_s.e.) %>%
     rename(SE = Est_s.e.)
   
-  cat("SampleSize_MAE is the number of transects with estimates of SR > 1", "\n")
-  cat("and SR>=2 for Shannon and Simpson", "\n","\n")
+  cat("SampleSize_MAD is the number of transects with estimates of SR > 1", sep = "\n")
+  cat("and SR>=2 for Shannon and Simpson", sep = "\n\n")
   
-  return(data.frame(Precisions, MAE = MAE$MAE, SampleSize_MAE = SampleSize$SS))
+  return(data.frame(Precisions, MAD = MAD$MAD, SampleSize_MAD = SampleSize$SS))
 }
