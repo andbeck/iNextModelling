@@ -2,15 +2,14 @@
 
 ## libraries ----
 library(iNEXT)
-library(tidyverse)
-
-library(gridExtra) # multi-panel ggplots
-library(ggfortify) # diagnostics for models
-library(ggrepel) # nice labelling of points
-
 library(MASS) # stepAIC multiple regression tools
 library(heplots) # effect sizes +
 
+library(tidyverse)
+library(gridExtra) # multi-panel ggplots
+library(ggfortify) # diagnostics for models
+library(ggrepel) # nice labelling of points
+library(GGally)
 ## Step 0: data import ----
 
 # forest compartment
@@ -103,7 +102,7 @@ names(habitat_use)
 # We need the habitat data represented three times each to match the 
 # diversity data, which has estimates of SR, Shannon and Simpson for each compartment
 
-df <- data.frame(diversity_data_coverage, 
+df_prep <- data.frame(diversity_data_coverage, 
                  compartment_age = rep(habitat_use$ForestAge, each= 3),
                  canopy_closure = rep(habitat_use$CanopyClosure, each = 3),
                  leaf_litter_depth = rep(habitat_use$LeafLitterDepth, each = 3),
@@ -111,7 +110,22 @@ df <- data.frame(diversity_data_coverage,
                  No.WaterBodies = rep(habitat_use$No.WaterBodies, each = 3),
                  WaterDistance = rep(habitat_use$WaterDistance, each = 3)) %>% 
   rename(coverage = SC) %>% 
-  rename(diversity_estimate = qD)
+  rename(diversity_estimate = qD) %>%
+  select(-m,-method, -qD.LCL, -qD.UCL)
+
+# ADD BACK IN THE Three Compartments with 0 SR
+zeroSR <- filter(habitat2, !Site %in% levels(diversity_data_coverage$Site))
+
+ZeroDF <- bind_rows(replicate(3, zeroSR, simplify = FALSE)) %>% 
+  arrange(Site, ForestAge) %>% 
+  mutate(diversity_estimate = 0, order = rep(0:2, 4), coverage = NA) %>% 
+  select(Site, order, coverage, diversity_estimate, ForestAge, CanopyClosure:WaterDistance)
+names(ZeroDF) <- names(df_prep)
+
+head(ZeroDF)
+head(df_prep)
+
+df <- bind_rows(df, ZeroDF)
 
 # quick check
 head(df)
@@ -132,6 +146,9 @@ Simp_unlogged <- filter(df, order == 2) %>% filter(compartment_age =='Unlogged')
 
 head(SR_data)
 tail(SR_data)
+
+# pairs correlations
+ggpairs(select(SR_data,compartment_age:No.WaterBodies))
 
 # fascinating groups....
 SR_plot <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
@@ -190,7 +207,7 @@ grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
 ## exploratory modelling ----
 
 # linear model with all terms.  log transforming the Estimator may be justified
-mod <- lm((diversity_estimate) ~ compartment_age + 
+mod <- lm(log(diversity_estimate+1) ~ compartment_age + 
             canopy_closure + leaf_litter_depth + understory_height + No.WaterBodies,
             data = SR_data)
 
