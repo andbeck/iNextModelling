@@ -1,5 +1,6 @@
 # elevation AccPres
 
+# note modifications to deal with
 # no compartment name or transect number
 
 # ---------------------------------------
@@ -11,22 +12,26 @@ library(iNEXT)
 # ---------------------------------------
 # source the function
 # this grabs the function and loads it into R's brain
-# to use.
+# to use.  This has been updated to manage the 
+# compartment/transect -> mountain/elevation issues
 
 source('Nada_Function_MAD.R')
 
-# ---------------------------------------
+## Import Data -----------------------------
+# These are defined by forest types
+impData <- read.csv("./CrossVal_Example/HillDipt.csv")
 
-HillDipt <- read.csv("./CrossVal_Example/HillDipt.csv")
-
-glimpse(HillDipt)
-unique(HillDipt$MountainName)
-unique(HillDipt$Elevation)
+# check it through
+glimpse(impData)
+unique(impData$MountainName)
+unique(impData$Elevation)
 
 # MODIFY DATA INPUT TO MATCH ACC PRES EXPECTATIONS
-useDat <- HillDipt %>% 
+# renaming mountain to compartment and elevation to transect
+# grabbing only the columns needed
+useDat <- impData %>% 
   rename(CompartmentName = MountainName,TransectNo = Elevation) %>% 
-  select(CompartmentName, TransectNo, Sp.01:Sp.28)
+  select(CompartmentName, TransectNo, contains("Sp."))
 
 glimpse(useDat)
 names(useDat)
@@ -54,4 +59,3 @@ names(useDat)
 # it will print some errors too... 
 
 AccPres(useDat)
-
