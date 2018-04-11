@@ -6,11 +6,13 @@ AccPres <- function(data, ...){
   # ---------------------------------------
   
   # create unique identifier of transect
-  wrk<-mutate(data, Comp_Trans = paste(CompartmentName,TransectNo, sep = ":"))
-  
+  wrk <- unite(data, col = Comp_Trans, 
+               CompartmentName, TransectNo, 
+               sep = ":") %>% 
+    select(Comp_Trans, starts_with("Sp."))
   
   Trans<-wrk %>% 
-    select(36,9:35) %>% # no vis count
+    # select(36,9:35) %>% # no vis count
     group_by(Comp_Trans) %>%
     summarise_all(funs(sum), na.rm = TRUE) # adds up all transects within compartment - date
   
