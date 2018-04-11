@@ -5,6 +5,7 @@ library(tidyverse)
 hab_master <- read_csv("./SpeciesAdultData/RawHabitatData.csv")
 
 names(hab_master)
+distinct(hab_master, Compartment)
 
 hab_Litter <- hab_master %>% 
   gather(key = SampleLitter, value = LeafLitter,
@@ -12,6 +13,7 @@ hab_Litter <- hab_master %>%
   select(Compartment, `Age of forest`, LoggingRotation, 
          SampleLitter, LeafLitter)
 head(hab_Litter)
+distinct(hab_Litter, Compartment)
 
 hab_Canopy <- hab_master %>% 
   gather(key = SampleCanopy, value = CanopyClosure,
@@ -66,6 +68,12 @@ hab_summary_rot1 <- select(hab_summary_rot1,
                            )
 
 head(hab_summary_rot1)
+
+# some checkings
+hab_summary_rot1 %>% 
+  group_by(Compartment, Age.of.forest) %>% 
+  summarise(n()) %>% 
+  arrange(Age.of.forest)
 
 write_csv(hab_summary_rot1, path = "./SpeciesAdultData/hab_summary_rot1.csv")
 
