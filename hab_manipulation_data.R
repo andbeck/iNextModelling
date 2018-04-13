@@ -54,7 +54,8 @@ Canopy_means <- hab_Canopy %>%
             canopy_n_closure = sum(!is.na(CanopyClosure))) %>% 
   filter(LoggingRotation == 1 | LoggingRotation == 'unlogged') %>% 
   ungroup() %>% 
-  select(canopy_mean_closure, canopy_sd_closure, canopy_n_closure)
+  select(canopy_mean_closure, canopy_sd_closure, 
+         canopy_median_closure, canopy_n_closure)
 head(Canopy_means)
 
 Litter_means <- hab_Litter %>% 
@@ -63,9 +64,10 @@ Litter_means <- hab_Litter %>%
             litter_sd_depth = sd(LeafLitter, na.rm = TRUE),
             litter_median_depth = median(LeafLitter, na.rm = TRUE),
             litter_n_depth = sum(!is.na(LeafLitter))) %>% 
-  filter(LoggingRotation == 1 | LoggingRotation == "Unlogged") %>% 
+  filter(LoggingRotation == 1 | LoggingRotation == "unlogged") %>% 
   ungroup() %>% 
-  select(litter_mean_depth, litter_sd_depth, litter_n_depth)
+  select(litter_mean_depth, litter_sd_depth, 
+         litter_median_depth, litter_n_depth)
 head(Litter_means)
 
 hab_summary_rot1 <- data.frame(Herb_means, Litter_means, Canopy_means)
@@ -74,9 +76,9 @@ hab_summary_rot1 <- select(hab_summary_rot1,
                            Age.of.forest,
                            contains("_mean_"),
                            contains("_sd_"),
+                           contains("_median_"),
                            contains("_n_")
                            )
-
 head(hab_summary_rot1)
 
 # some checkings
