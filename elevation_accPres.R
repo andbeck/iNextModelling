@@ -19,7 +19,7 @@ source('Nada_Function_MAD.R')
 
 ## Import Data -----------------------------
 # These are defined by forest types
-impData <- read.csv("./CrossVal_Example/HillDipt.csv")
+impData <- read_csv("./CrossVal_Example/HillDipt.csv")
 
 # check it through
 glimpse(impData)

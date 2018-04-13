@@ -2,10 +2,15 @@
 
 library(tidyverse)
 
+# get the raw data
 hab_master <- read_csv("./SpeciesAdultData/RawHabitatData.csv")
 
+# make sure it makes sense
 names(hab_master)
 distinct(hab_master, Compartment)
+distinct(hab_master, LoggingRotation)
+
+# separate into Litter, Canopy and Herbaceous
 
 hab_Litter <- hab_master %>% 
   gather(key = SampleLitter, value = LeafLitter,
@@ -29,12 +34,15 @@ hab_Herb <- hab_master %>%
 
 dim(hab_Herb); dim(hab_Canopy); dim(hab_Litter)
 
+# get summary stats and isolate Rotation = 1 and UNLOGGED
+
 Herb_means <- hab_Herb %>% 
   group_by(Compartment, `Age of forest`, LoggingRotation) %>% 
   summarise(herb_mean_height = mean(HerbHeight, na.rm = TRUE),
             herb_sd_height = sd(HerbHeight, na.rm = TRUE),
+            herb_median_height = median(HerbHeight, na.rm = TRUE),
             herb_n_height = sum(!is.na(HerbHeight))) %>% 
-  filter(LoggingRotation == 1) %>% 
+  filter(LoggingRotation == 1 | LoggingRotation == "unlogged") %>% 
   ungroup()
 head(Herb_means)
 
@@ -42,8 +50,9 @@ Canopy_means <- hab_Canopy %>%
   group_by(Compartment, `Age of forest`, LoggingRotation) %>% 
   summarise(canopy_mean_closure = mean(CanopyClosure, na.rm = TRUE),
             canopy_sd_closure = sd(CanopyClosure, na.rm = TRUE),
+            canopy_median_closure = median(CanopyClosure, na.rm = TRUE),
             canopy_n_closure = sum(!is.na(CanopyClosure))) %>% 
-  filter(LoggingRotation == 1) %>% 
+  filter(LoggingRotation == 1 | LoggingRotation == 'unlogged') %>% 
   ungroup() %>% 
   select(canopy_mean_closure, canopy_sd_closure, canopy_n_closure)
 head(Canopy_means)
@@ -52,8 +61,9 @@ Litter_means <- hab_Litter %>%
   group_by(Compartment, `Age of forest`, LoggingRotation) %>% 
   summarise(litter_mean_depth = mean(LeafLitter, na.rm = TRUE),
             litter_sd_depth = sd(LeafLitter, na.rm = TRUE),
+            litter_median_depth = median(LeafLitter, na.rm = TRUE),
             litter_n_depth = sum(!is.na(LeafLitter))) %>% 
-  filter(LoggingRotation == 1) %>% 
+  filter(LoggingRotation == 1 | LoggingRotation == "Unlogged") %>% 
   ungroup() %>% 
   select(litter_mean_depth, litter_sd_depth, litter_n_depth)
 head(Litter_means)
