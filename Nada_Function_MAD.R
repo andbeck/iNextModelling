@@ -9,12 +9,13 @@ AccPres <- function(data, ...){
   wrk <- unite(data, col = Comp_Trans, 
                CompartmentName, TransectNo, 
                sep = ":") %>% 
-    select(Comp_Trans, starts_with("Sp."))
-  
+    select(Comp_Trans, starts_with("Sp.")) %>% 
+    select_if(function(x){!all(is.na(x))}) # select only columns where at least on transect has a species
+    
   Trans<-wrk %>% 
     # select(36,9:35) %>% # no vis count
     group_by(Comp_Trans) %>%
-    summarise_all(funs(sum), na.rm = TRUE) # adds up all transects within compartment - date
+    summarise_all(funs(sum),na.rm = TRUE) # adds up all transects within compartment - date
   
   AllData <- Trans %>% select(-Comp_Trans) %>% 
     summarise_all(funs(sum)) %>% 
