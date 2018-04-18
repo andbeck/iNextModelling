@@ -90,4 +90,8 @@ hab_summary_rot1 %>%
 
 # write_csv(hab_summary_rot1, path = "./SpeciesAdultData/hab_summary_rot1.csv")
 
+pairDat <- select(hab_summary_rot1, contains("_mean_"))
+ggpairs(pairDat)
+
+mean_median <- select(hab_summary_rot1, contains("_mean_"), contains("_median_"))
 
