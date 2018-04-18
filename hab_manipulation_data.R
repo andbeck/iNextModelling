@@ -1,6 +1,7 @@
 # Create Nada Habitat Summary Data
 
 library(tidyverse)
+library(GGally)
 
 # get the raw data
 hab_master <- read_csv("./SpeciesAdultData/RawHabitatData.csv")
@@ -87,5 +88,6 @@ hab_summary_rot1 %>%
   summarise(n()) %>% 
   arrange(Age.of.forest)
 
-write_csv(hab_summary_rot1, path = "./SpeciesAdultData/hab_summary_rot1.csv")
+# write_csv(hab_summary_rot1, path = "./SpeciesAdultData/hab_summary_rot1.csv")
+
 
