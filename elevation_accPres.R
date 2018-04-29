@@ -14,6 +14,7 @@ library(iNEXT)
 # this grabs the function and loads it into R's brain
 # to use.  This has been updated to manage the 
 # compartment/transect -> mountain/elevation issues
+# and species with all NA's issues
 
 source('Nada_Function_MAD.R')
 
