@@ -4,7 +4,7 @@ library(tidyverse)
 library(GGally)
 
 # get the raw data
-hab_master <- read_csv("./SpeciesAdultData/RawHabitatData.csv")
+hab_master <- read_csv("DataSources/RawHabitatData.csv")
 
 # make sure it makes sense
 names(hab_master)
@@ -90,8 +90,5 @@ hab_summary_rot1 %>%
 
 # write_csv(hab_summary_rot1, path = "./SpeciesAdultData/hab_summary_rot1.csv")
 
-pairDat <- select(hab_summary_rot1, contains("_mean_"))
-ggpairs(pairDat)
 
-mean_median <- select(hab_summary_rot1, contains("_mean_"), contains("_median_"))
 

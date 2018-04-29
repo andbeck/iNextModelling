@@ -1,4 +1,4 @@
-## Nada Chapters 2-3 iNext Modelling ----
+## Nada Chapters 2 iNext Modelling ----
 
 ## libraries ----
 library(iNEXT)
@@ -10,17 +10,12 @@ library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
 library(GGally)
+
 ## Step 0: data import ----
 
 # forest compartment
-compart <- read.csv('SpeciesAdultData/All_DTC2.csv')
-habitat <- read.csv('SpeciesAdultData/DTC-AverageHabitatCompt-Age(12.04.18).csv')
-
-str(compart)
-str(habitat)
-
-habitat %>% 
-
+compart <- read_csv('./Chapter2_Compartments/DataSources/All_DTC3.csv')
+habitat <- read_csv('./Chapter2_Compartments/DataSources/hab_summary_rot1_27.04.2018.csv')
 
 # Step 1: calculate column sums by forest category and compartment name to get iNEXT vals ----
 
@@ -33,6 +28,7 @@ comp_age <- compart %>%
   filter(!str_detect(ForestType, "twice")) %>%
   select(ForestCategory, CompartmentName, Sp.01:Sp.27) %>%
   group_by(ForestCategory, CompartmentName) %>%
+  select_if(~!all(is.na(.))) %>% 
   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
   mutate(Age_Name = paste(ForestCategory, CompartmentName, sep = ':')) %>% 
   mutate(ActualAge = case_when(CompartmentName %in% c("UTT35", "UTT41") ~ 2,
@@ -72,6 +68,9 @@ names(compartment_input)<-unique(comp_age$CompartmentName)
 compartment_use <- compartment_input %>% keep(function(x) length(x)>1)
 length(compartment_use)
 
+# we are losing 3 because of only 1 species being found there
+names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
+
 #  Step 3: iNEXT modelling happens here -----
 
 # run iNEXT (it works on a list)
@@ -105,29 +104,32 @@ names(habitat_use)
 # diversity data, which has estimates of SR, Shannon and Simpson for each compartment
 
 df_prep <- data.frame(diversity_data_coverage, 
-                 compartment_age = rep(habitat_use$ForestAge, each= 3),
-                 canopy_closure = rep(habitat_use$CanopyClosure, each = 3),
-                 leaf_litter_depth = rep(habitat_use$LeafLitterDepth, each = 3),
-                 understory_height = rep(habitat_use$HerbPlantHeight, each = 3),
-                 No.WaterBodies = rep(habitat_use$No.WaterBodies, each = 3),
-                 WaterDistance = rep(habitat_use$WaterDistance, each = 3)) %>% 
+                 compartment_age = rep(habitat_use$Age.of.forest, each= 3),
+                 canopy_closure = rep(habitat_use$canopy_mean_closure, each = 3),
+                 leaf_litter_depth = rep(habitat_use$litter_mean_depth, each = 3),
+                 understory_height = rep(habitat_use$herb_mean_height, each = 3),
+                 No_WaterBodies = rep(habitat_use$water_mean_number, each = 3),
+                 near_Primary = rep(habitat_use$AdjacentUnlogged, each = 3)) %>% 
   rename(coverage = SC) %>% 
   rename(diversity_estimate = qD) %>%
   select(-m,-method, -qD.LCL, -qD.UCL)
 
-# ADD BACK IN THE Three Compartments with 0 SR
+# ADD BACK IN THE Three Compartments with 1 SR
 zeroSR <- filter(habitat2, !Site %in% levels(diversity_data_coverage$Site))
 
 ZeroDF <- bind_rows(replicate(3, zeroSR, simplify = FALSE)) %>% 
-  arrange(Site, ForestAge) %>% 
-  mutate(diversity_estimate = 0, order = rep(0:2, 4), coverage = NA) %>% 
-  select(Site, order, coverage, diversity_estimate, ForestAge, CanopyClosure:WaterDistance)
+  arrange(Site, Age.of.forest) %>% 
+  mutate(diversity_estimate = 1, order = rep(0:2, 3), coverage = NA) %>% 
+  select(Site, order, coverage, diversity_estimate, Age.of.forest, 
+         contains('_mean_'), AdjacentUnlogged) %>% 
+  as.data.frame()
+
 names(ZeroDF) <- names(df_prep)
 
 head(ZeroDF)
 head(df_prep)
 
-df <- bind_rows(df, ZeroDF)
+df <- rbind(df_prep, ZeroDF)
 
 # quick check
 head(df)
@@ -135,43 +137,35 @@ head(df)
 ## Exploratory Plotting of diversity and habitat data ----
 
 # Isolate Species Richness data (order/q = 0)
-# temporarily remove Unlogged?  (set at age 0 above)
-SR_data <- filter(df, order == 0) %>% filter(compartment_age!='Unlogged') %>% 
+# unlogged currenty as 200 yrs old.
+SR_data <- filter(df, order == 0) %>% 
   mutate(compartment_age = as.numeric(as.character(compartment_age)))
 
-SR_unlogged <- filter(df, order == 0) %>% filter(compartment_age =='Unlogged')
-
-Simp_data <- filter(df, order == 2) %>% filter(compartment_age!='Unlogged') %>% 
+Simp_data <- filter(df, order == 2) %>% 
   mutate(compartment_age = as.numeric(as.character(compartment_age)))
-
-Simp_unlogged <- filter(df, order == 2) %>% filter(compartment_age =='Unlogged')
 
 head(SR_data)
 tail(SR_data)
 
 # pairs correlations
-ggpairs(select(SR_data,compartment_age:No.WaterBodies))
+ggpairs(select(SR_data,compartment_age:near_Primary))
 
 # fascinating groups....
 SR_plot <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
-  geom_point(data = SR_unlogged, aes(x = 50, y = diversity_estimate), colour = 'red', size = 5)+
   labs(x = "Compartment Age (Years Since Last Logging)",
        y = "Species Richness Estimate") +
-  annotate('text', x = 48, y = 3, angle = 90, label = "Unlogged", col = 'red')+
   theme_bw()
 
 Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
-  geom_point(data = Simp_unlogged, aes(x = 50, y = diversity_estimate), colour = 'red', size = 5)+
   labs(x = "Compartment Age (Years Since Last Logging)",
        y = "Simpsons Diversity Estimate") +
-  annotate('text', x = 48, y = 2, angle = 90, label = "Unlogged", col = 'red') +
   theme_bw()
 
-grid.arrange(SR_plot, Simp_plot)
+grid.arrange(SR_plot, Simp_plot, ncol = 1)
 
 # habitat plots ----
 SR_canopy_closure <- ggplot(SR_data, aes(x = canopy_closure, y = diversity_estimate))+
@@ -195,7 +189,7 @@ SR_understory_height <- ggplot(SR_data, aes(x = understory_height, y = diversity
        y = "Species Richness Estimate") +
   theme_bw()
 
-SR_No.WaterBodies <- ggplot(SR_data, aes(x = No.WaterBodies, y = diversity_estimate))+
+SR_No_WaterBodies <- ggplot(SR_data, aes(x = No_WaterBodies, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
   labs(x = "No.WaterBodies",
@@ -203,46 +197,43 @@ SR_No.WaterBodies <- ggplot(SR_data, aes(x = No.WaterBodies, y = diversity_estim
   theme_bw()
 
 grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
-             SR_understory_height, SR_No.WaterBodies,
+             SR_understory_height, SR_No_WaterBodies,
              ncol = 2)
 
 ## exploratory modelling ----
 
 # linear model with all terms.  log transforming the Estimator may be justified
-mod <- lm(log(diversity_estimate+1) ~ compartment_age + 
-            canopy_closure + leaf_litter_depth + understory_height + No.WaterBodies,
-            data = SR_data)
+mod_age <- lm(log(diversity_estimate) ~ compartment_age, data = SR_data)
+mod_hab <- lm(log(diversity_estimate) ~ canopy_closure + leaf_litter_depth + understory_height + 
+                No_WaterBodies + near_Primary, data = SR_data)
 
-autoplot(mod, smooth.colour = NA)
+# diagnostics.
+par(mfrow = c(2,4))
+plot(mod_age)
+plot(mod_hab)
 
 # signficnant (almost) age and leaf litter.
 # log transformation removes age.
-summary(mod)
+summary(mod_age)
 
-mod_step <- stepAIC(mod)
-summary(mod_step)
+summary(mod_hab)
+mod_step_hab <- stepAIC(mod_hab)
+summary(mod_step_hab)
 
-etasq(mod, anova = TRUE)
-etasq(mod_step, anova = TRUE)
+# Medium effect sizes....
+etasq(mod_age, anova = TRUE)
+etasq(mod_step_hab, anova = TRUE)
 
-# plot model results ----
-# Step 1
-# newX are defined on a grid of age and leaf litter (significant terms)
-# and tat the mean of canopy and understory (insignficant)
-newX <- expand.grid(compartment_age = seq(from = 0, to = 50, by = 1),
-                    canopy_closure = mean(SR_data$canopy_closure),
-                    leaf_litter_depth = mean(SR_data$leaf_litter_depth),
-                    understory_height = seq(from = 30, to = 100, by = 10))
+library(MuMIn)
+fullMod <- lm(log(diversity_estimate) ~ compartment_age + 
+              canopy_closure + leaf_litter_depth + understory_height + 
+              No_WaterBodies + near_Primary, 
+              data = SR_data, na.action = na.fail)
+dd <- dredge(fullMod)
+subset(dd, delta < 4)
 
-# Step 2: get the predictions
-newY <- predict(mod, newdata = newX, interval = 'confidence')
+# set < 4 average coefs
+model.avg(dd, subset = delta < 4)
 
-# Step 3: Housekeeping to create data frame to plot
-plotThese<-data.frame(newX, newY) %>% rename("Predicted Diversity" = fit)
-head(plotThese)
-# Step 4: make the plot
-ggplot(plotThese, aes(x = compartment_age, y = `Predicted Diversity`, 
-                      colour = factor(understory_height)))+
-  geom_line() +
-  theme_bw()
-
+# best model
+summary(get.models(dd, 1)[[1]])
