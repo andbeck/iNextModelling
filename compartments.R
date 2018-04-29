@@ -14,10 +14,12 @@ library(GGally)
 
 # forest compartment
 compart <- read.csv('SpeciesAdultData/All_DTC2.csv')
-habitat <- read.csv('SpeciesAdultData/DTC-AverageHabitatCompt-Age.csv')
+habitat <- read.csv('SpeciesAdultData/DTC-AverageHabitatCompt-Age(12.04.18).csv')
 
 str(compart)
 str(habitat)
+
+habitat %>% 
 
 
 # Step 1: calculate column sums by forest category and compartment name to get iNEXT vals ----
