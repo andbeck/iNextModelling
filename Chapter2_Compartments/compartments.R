@@ -206,7 +206,10 @@ grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
 mod_age <- lm(log(diversity_estimate) ~ compartment_age, data = SR_data)
 mod_hab <- lm(log(diversity_estimate) ~ canopy_closure + leaf_litter_depth + understory_height + 
                 No_WaterBodies + near_Primary, data = SR_data)
-
+fullMod <- lm(log(diversity_estimate) ~ compartment_age + 
+                canopy_closure + leaf_litter_depth + understory_height + 
+                No_WaterBodies + near_Primary, 
+              data = SR_data)
 # diagnostics.
 par(mfrow = c(2,4))
 plot(mod_age)
