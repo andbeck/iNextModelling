@@ -62,7 +62,7 @@ for (i in seq_len(age_counter)){
 }
 
 # add sensible names to the list pieces
-names(compartment_input)<-unique(comp_age$CompartmentName)
+names(compartment_input) <- unique(comp_age$CompartmentName)
 
 # Get Rid of entries with SR < 1 (iNEXT does not work without >2 species)
 compartment_use <- compartment_input %>% keep(function(x) length(x)>1)
@@ -70,6 +70,9 @@ length(compartment_use)
 
 # we are losing 3 because of only 1 species being found there
 names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
+
+# keep these for later adding (they won't work with iNEXT but we need the species richness = 1)
+compartment_oneTransect <- compartment_input %>% keep(function(x) length(x)==1)
 
 #  Step 3: iNEXT modelling happens here -----
 
@@ -80,7 +83,7 @@ compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)
 # set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
-coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = NULL) %>% 
+coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = 0.9) %>% 
   rename(Site = site) 
 
 # visualise the results
@@ -92,7 +95,9 @@ plot(compartment_mod, type = 3)
 # Step 4: Collect Asymptotic estimates for downstream analyses and add habitat data ----
 diversity_data_observations <- compartment_mod$AsyEst %>% arrange(as.character(Site))
 diversity_data_coverage <- coverage_min_diversity %>% arrange(as.character(Site))
-  
+
+cbind(diversity_data_coverage$qD, diversity_data_observations$Estimator)
+
 # organise the habitat data ----
 # some compartments are not represented in the iNEXT data (no species)
 habitat2 <- arrange(habitat, Compartment) %>% rename(Site = Compartment)
@@ -115,21 +120,21 @@ df_prep <- data.frame(diversity_data_coverage,
   select(-m,-method, -qD.LCL, -qD.UCL)
 
 # ADD BACK IN THE Three Compartments with 1 SR
-zeroSR <- filter(habitat2, !Site %in% levels(diversity_data_coverage$Site))
+one_SR <- filter(habitat2, !Site %in% levels(diversity_data_coverage$Site))
 
-ZeroDF <- bind_rows(replicate(3, zeroSR, simplify = FALSE)) %>% 
+one_DF <- bind_rows(replicate(3, one_SR, simplify = FALSE)) %>% 
   arrange(Site, Age.of.forest) %>% 
   mutate(diversity_estimate = 1, order = rep(0:2, 3), coverage = NA) %>% 
   select(Site, order, coverage, diversity_estimate, Age.of.forest, 
          contains('_mean_'), AdjacentUnlogged) %>% 
   as.data.frame()
 
-names(ZeroDF) <- names(df_prep)
+names(one_DF) <- names(df_prep)
 
-head(ZeroDF)
+head(one_DF)
 head(df_prep)
 
-df <- rbind(df_prep, ZeroDF)
+df <- rbind(df_prep, one_DF)
 
 # quick check
 head(df)
@@ -203,31 +208,43 @@ grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
 ## exploratory modelling ----
 
 # linear model with all terms.  log transforming the Estimator may be justified
-mod_age <- lm(log(diversity_estimate) ~ compartment_age, data = SR_data)
-mod_hab <- lm(log(diversity_estimate) ~ canopy_closure + leaf_litter_depth + understory_height + 
-                No_WaterBodies + near_Primary, data = SR_data)
-fullMod <- lm(log(diversity_estimate) ~ compartment_age + 
-                canopy_closure + leaf_litter_depth + understory_height + 
-                No_WaterBodies + near_Primary, 
-              data = SR_data)
-# diagnostics.
+mod_full_poly <- lm(log(diversity_estimate) ~ poly(compartment_age,2) + 
+                 poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
+                 No_WaterBodies + near_Primary, 
+               data = SR_data)
+
+mod_full_lin <- lm(log(diversity_estimate) ~ compartment_age + 
+                 canopy_closure + leaf_litter_depth + understory_height + 
+                 No_WaterBodies + near_Primary, 
+               data = SR_data)
+
+
 par(mfrow = c(2,4))
-plot(mod_age)
-plot(mod_hab)
+plot(mod_full_poly)
+plot(mod_full_lin)
 
 # signficnant (almost) age and leaf litter.
 # log transformation removes age.
-summary(mod_age)
+Anova(mod_full_poly)
+Anova(mod_full_lin)
 
-summary(mod_hab)
-mod_step_hab <- stepAIC(mod_hab)
-summary(mod_step_hab)
+# step AIC
+step_full_poly <- stepAIC(mod_full_poly)
+step_full_lin <- stepAIC(mod_full_lin)
+
+Anova(step_full_poly)
+Anova(step_full_lin)
 
 # Medium effect sizes....
-etasq(mod_age, anova = TRUE)
-etasq(mod_step_hab, anova = TRUE)
+etasq(step_full_poly, anova = TRUE)
+etasq(step_full_lin, anova = TRUE)
 
+# coefs
+summary(step_full_poly)
+
+# model averaging approach.
 library(MuMIn)
+
 fullMod_dredge <- update(fullMod, na.action = na.fail)
 dd <- dredge(fullMod_dredge, subset = 
                dc(compartment_age, I(compartment_age^2)) && 
@@ -243,3 +260,5 @@ summary(model.avg(dd, subset = delta < 3))
 
 # best model
 summary(get.models(dd, 1)[[1]])
+
+
