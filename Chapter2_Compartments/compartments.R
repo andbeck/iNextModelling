@@ -228,15 +228,18 @@ etasq(mod_age, anova = TRUE)
 etasq(mod_step_hab, anova = TRUE)
 
 library(MuMIn)
-fullMod <- lm(log(diversity_estimate) ~ compartment_age + 
-              canopy_closure + leaf_litter_depth + understory_height + 
-              No_WaterBodies + near_Primary, 
-              data = SR_data, na.action = na.fail)
-dd <- dredge(fullMod)
-subset(dd, delta < 4)
+fullMod_dredge <- update(fullMod, na.action = na.fail)
+dd <- dredge(fullMod_dredge, subset = 
+               dc(compartment_age, I(compartment_age^2)) && 
+               dc(canopy_closure, I(canopy_closure^2)) &&
+               dc(leaf_litter_depth, I(leaf_litter_depth^2)) && 
+               dc(understory_height, I(understory_height^2)))
+  
 
-# set < 4 average coefs
-model.avg(dd, subset = delta < 4)
+# set for delta AICc < 2 : the AICc is compared to the best model
+# we want ones that are close to the best model
+# delta = 'difference in'
+summary(model.avg(dd, subset = delta < 3))
 
 # best model
 summary(get.models(dd, 1)[[1]])

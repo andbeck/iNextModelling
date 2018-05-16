@@ -1,0 +1,238 @@
+---
+title: "NadaHelperFile"
+author: "APB"
+date: "16/05/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview of Modelling and Outputs
+
+The data read in are derived from the combination of habitat variables and running iNEXT.  The habitat data have been processed by APB and NB to produce means, standard errors and various other variables.  The working dataframe however focuses on mean values.
+
+### library preps
+```{r, warning = FALSE, message = FALSE}
+library(GGally)
+library(gridExtra)
+library(ggrepel)
+library(car)
+library(heplots)
+library(MuMIn)
+library(ggfortify)
+library(MASS)
+library(tidyverse)
+```
+
+
+### Read in the data
+```{r}
+compartment_data <- read_csv("./DataSources/compartment_modelling.csv")
+```
+
+### Some First manipulations and plotting
+
+Here we isolate the Species Richness Data and the Simpsons Diversity Data.  We also note that unlogged data is currently set at 200 years old.
+
+```{r}
+# Isolate Species Richness data (order/q = 0)
+# unlogged currenty as 200 yrs old.
+
+SR_data <- filter(compartment_data, order == 0) %>% 
+  mutate(compartment_age = as.numeric(as.character(compartment_age)))
+
+Simp_data <- filter(compartment_data, order == 2) %>% 
+  mutate(compartment_age = as.numeric(as.character(compartment_age)))
+
+# check the columns
+head(SR_data)
+
+# produce a pairs correlations
+ggpairs(select(SR_data,compartment_age:near_Primary), lower = list(combo = wrap("facethist", binwidth = 0.5)))
+```
+
+This pairs correlation plot indicates that there are very few strong relationships between traits.  The strongest, at 0.6 is between canopy closure and understory height.  We will check again on this later but it's not a very strong relationship to worry about.
+
+### First look at how species richness varies with time since logging
+
+We use ggplot on the species richness and the simpson's diversity data, making a plot where the x-axis is age and the y-axis is the diversity metric.
+
+```{r}
+SR_plot <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Compartment Age (Years Since Last Logging)",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Compartment Age (Years Since Last Logging)",
+       y = "Simpsons Diversity Estimate") +
+  theme_bw()
+
+grid.arrange(SR_plot, Simp_plot, ncol = 1)
+```
+
+It should be clear from these plots that our decision about the __unlogged__ forest age is going to impact on things.
+
+###  Species Richness vs. Habitat Characteristics
+
+Here we can look at how species richness varies with the 4 major habitat characteristics
+
+```{r}
+# habitat plots ----
+SR_canopy_closure <- ggplot(SR_data, aes(x = canopy_closure, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Canopy Closure",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_leaf_litter_depth <- ggplot(SR_data, aes(x = leaf_litter_depth, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Leaf Litter Depth",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_understory_height <- ggplot(SR_data, aes(x = understory_height, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Understory Height",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_No_WaterBodies <- ggplot(SR_data, aes(x = No_WaterBodies, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "No.WaterBodies",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+SR_Primary <- ggplot(SR_data, aes(x = near_Primary, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Primary Forest Proximity",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
+grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
+             SR_understory_height, SR_No_WaterBodies, SR_Primary,
+             ncol = 3)
+
+```
+
+### Now, the modelling basics.
+
+Lets start by fitting the big model to the species richness data.  There is some risk here, in that we are fitting 7 variables to 18 data points.  We will also in this large model, fit linear AND quadratic terms.  This means we will fit `y ~ intercept + x + x^2` which allows a hump or valley shape for each of the habitat or age variables.
+
+We are doing this using what are known as __orthoganal polynomials__ whih
+
+I have also log-transformed the diversity estimate, as this makes the residuals (diagnostics) better.
+
+```{r}
+fullMod <- lm(log(diversity_estimate) ~ compartment_age + I(compartment_age^2)+
+                canopy_closure + I(canopy_closure^2)+
+                leaf_litter_depth + I(leaf_litter_depth^2) +
+                understory_height + I(understory_height^2) +
+                No_WaterBodies + near_Primary,
+              data = SR_data)
+```
+
+Lets check the diagnostics
+
+```{r}
+autoplot(fullMod, smooth.colour = NA)
+```
+
+These look good.
+
+#### Exploring the results/model and moving forward.
+
+Our first step is to look at the anova table.  We will use `Anova()` __with a big A__ from the car package to get a table where all the p-values are properly relative to the others.
+
+```{r}
+Anova(fullMod)
+```
+
+So, there is not a lot of evidence for anything.... But there are lots of terms in the model....
+
+### NEXT STEP: model averaging and the MuMIns.
+
+MuMins - look them up on wikipedia!
+
+Karl suggested the information theoretic approach.  This is fully based around AIC and the Burnham and Anderson book.  AIC >=2 for a term in the model means it is valuable.  The way it works is to fit the model with and without the term.  We then take the R^2 for each term and discount it by the number of total parameters in the bigger model.  Why?  Because just adding terms, whether they are signficant/important or not, will elevate R^2. Remember that R^2 for us is the amount of variation in Species Richness explained by the terms (age and habitat etc).
+
+To do this, we will use MuMin, a package that automates this process using a function called `dredge()`
+
+```{r}
+# update model to work with mumin
+fullMod_dredge <- update(fullMod, na.action = na.fail)
+
+# dc - dependency chain - we are forcing MuMIn to never let the ^2 term 
+# be in the model without the linear term
+dd <- dredge(fullMod_dredge, subset = 
+               dc(compartment_age, I(compartment_age^2)) && 
+               dc(canopy_closure, I(canopy_closure^2)) &&
+               dc(leaf_litter_depth, I(leaf_litter_depth^2)) && 
+               dc(understory_height, I(understory_height^2)))
+  
+
+# set for delta AICc < 3 : the AICc is compared to the best model
+# we want ones that are close to the best model
+# delta = 'difference in'
+# delta < 3 gives a set of 4 similar models
+summary(model.avg(dd, subset = delta < 3))
+
+# best model
+summary(get.models(dd, 1)[[1]])
+```
+
+So, this is an approach based on a variation of p-values and discounting R^2.  It gives the following results:
+
+* There are 4 models with similar explanatory power which involve __compartment age__, __understory height__ and __leaf litter depth__ as a polynomial (hump shaped).
+    - The first (best model) is with __leaf litter depth__ as a polynomial, only.
+    - The next best model includes __compartment age__ with __leaf litter depth__ as a polynomial
+    - The third best model is __compartment age__ alone
+    - The fourth best includes __understory height__ with __leaf litter depth__ as a polynomial
+* An __averaged model__ based on the 4 that are included at delta AICc < 3, is produced.
+
+Remember, this is a significance testing paradigm.  It is about testing whether, were we to sample under the expectation of slopes of zero, we'd find non-zero slopes.  It does not tell us how big the effects are....
+
+
+### Effect sizes vs. model averaging
+
+An (alternative) next step we can take is to evaluate the __effect sizes__ of each of the terms in the original model.  
+
+The effect size is a simple way of quantifying the effect of a term that emphasises the size of the difference rather than confounding this with sample size.  It is a standardised estimate of how much variance is explained by a term... reporting of effect sizes facilitates the interpretation of the substantive, as opposed to the statistical, significance of a research result.
+
+We can get effect sizes using the `etasq()` function for anova/multiple regression analyses found in the car libary.
+
+partial eta squared values are interpreted as 0.01 (small), 0.09 (medium) and 0.25 (large) 
+
+```{r}
+etasq(fullMod, partial = TRUE)
+```
+
+This is interesting stuff.  Now we have some insight into the __effect size__ of the variables.  
+
+* __understory height__ has the strongest effect on species richness
+* __canopy closure__ and __proximity to primary forests__ also have a strong effects (close to 0.25)
+* __compartment age__, __waterbodies__ and __leaf litter depth__ have small- medium effects.
+
+
+### What to do?
+
+We have two results.
+
+* The model averaging approach.
+    - Best model(s) are based around __leaf litter depth__
+
+* The standard model + effect size approach
+    - Biggest effect size is __understory height__
+
+
