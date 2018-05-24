@@ -1,0 +1,19 @@
+ForestCategory,CompartmentName,Sp.01,Sp.04,Sp.05,Sp.08,Sp.09,Sp.11,Sp.13,Sp.15,Sp.18,Sp.19,Sp.20,Sp.21,Sp.22,Sp.23,Sp.24,Age_Name,ActualAge
+00-05 years,PB87,1,0,0,0,0,0,30,1,0,0,0,0,0,1,0,00-05 years:PB87,5
+00-05 years,PS52,7,1,0,0,0,0,0,0,0,0,1,0,0,0,0,00-05 years:PS52,5
+00-05 years,UTT35,4,0,0,0,2,0,0,0,0,0,0,0,0,0,0,00-05 years:UTT35,2
+00-05 years,UTT41,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,00-05 years:UTT41,2
+06-15 years,B12,4,0,0,0,2,0,0,0,0,0,0,0,0,0,0,06-15 years:B12,10
+06-15 years,JU31Y,2,0,0,0,23,1,0,0,0,1,0,0,0,0,0,06-15 years:JU31Y,11
+06-15 years,JU93,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,06-15 years:JU93,6
+16-25 years,B17,5,0,0,0,0,0,0,0,1,0,0,0,1,0,0,16-25 years:B17,24
+16-25 years,JI4,3,0,0,0,3,0,0,0,0,0,7,2,0,0,2,16-25 years:JI4,23
+16-25 years,JI52,0,0,0,1,1,0,10,0,0,0,1,0,0,1,0,16-25 years:JI52,20
+More than 26 years,B18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,More than 26 years:B18,30
+More than 26 years,B19,0,0,0,0,2,0,22,0,0,0,0,0,0,0,1,More than 26 years:B19,30
+More than 26 years,BT7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,More than 26 years:BT7,32
+More than 26 years,JI64,2,0,0,0,0,0,0,0,0,0,0,0,3,0,0,More than 26 years:JI64,31
+More than 26 years,JU31N,2,0,1,0,30,0,0,1,1,0,0,0,0,0,1,More than 26 years:JU31N,41
+Unlogged,JU100,3,0,0,0,0,0,6,0,0,0,2,0,0,0,2,Unlogged:JU100,0
+Unlogged,PS26,1,0,2,0,3,0,3,0,0,0,2,0,0,0,0,Unlogged:PS26,0
+Unlogged,UTT27,5,0,0,0,1,0,5,0,0,0,0,0,0,0,0,Unlogged:UTT27,0

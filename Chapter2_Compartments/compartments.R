@@ -10,6 +10,7 @@ library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
 library(GGally)
+library(broom)
 library(tidyverse)
 
 ## Step 0: data import ----
@@ -221,7 +222,7 @@ grid.arrange(SR_age, SR_canopy_closure,
              SR_No_WaterBodies, SR_Primary,
              ncol = 3)
 
-## modelling ----
+## linear modelling with iNEXT Asymptotes ----
 
 # linear model with all terms; polynomial 2 and 1 
 mod_full_poly <- lm(diversity_estimate ~ poly(compartment_age,2) + 
@@ -253,9 +254,11 @@ plot(mod_full_lin_log, add.smooth = FALSE)
 Anova(mod_full_lin_log)
 
 # Step 6: Medium effect sizes....
-etasq(mod_full_lin_log, anova = TRUE)
+eta <- etasq(mod_full_lin_log, anova = TRUE)
 
 # MVABUND approach ----
+
+# does community composition vary by habitat.
 
 # prepare the abundance data
 abund_dat <- comp_age %>% 
@@ -269,7 +272,8 @@ hab_dat <- SR_data %>%
   as.data.frame()
 
 # view some of the abundance data
-boxplot(abund_dat)
+plot(abund_dat, hab_dat$near_Primary)
+plot(abund_dat, cut(hab_dat$compartment_age, 3))
 
 # build the multivariate model of site x species abundance ~ habitat
 mv_model <- manyglm(abund_dat ~ compartment_age+
@@ -278,16 +282,45 @@ mv_model <- manyglm(abund_dat ~ compartment_age+
                    understory_height +
                    No_WaterBodies +
                    near_Primary, 
-                 data = hab_dat, family = "poisson")
+                 data = hab_dat, family = "negbinomial")
+
+# diagnostics (some hint of mean-var with poisson.... negBin much better)
+par(mfrow = c(1,3))
+plot(mv_model, which = 1:3)
 
 # model inference
 anova(mv_model)
 
+# betapart to dig deeper?
+library(betapart)
 
-# model averaging approach.
+beta_dat <- comp_age %>% 
+  ungroup() %>% 
+  select(starts_with("Sp."))
+
+# create beta dissimilarity based on abundance
+betaCore <- beta.pair.abund(beta_dat)
+betaCore <- bray.part(beta_dat)
+betaCore
+
+# the MVabund model highlighted leaf litter and No.Water Bodies
+# lets create a 3 level factor for each of these, and assess beta
+litter_3fac <- cut(hab_dat$leaf_litter_depth, 3, 
+                   labels = c("shallow", "med", "deep"))
+water_3fac <- cut(hab_dat$No_WaterBodies, 3, 
+                  labels = c("few", "mid", "many"))
+
+par(mfrow = c(1,2))
+plot(betadisper(betaCore[[3]], litter_3fac), main = "Litter Depth Beta")
+plot(betadisper(betaCore[[3]], water_3fac), main = "No of Water Bodies Beta")
+
+anova(betadisper(betaCore[[3]], litter_3fac))
+anova(betadisper(betaCore[[3]], water_3fac))
+
+# model averaging approach ----
 library(MuMIn)
 
-fullMod_dredge <- update(fullMod, na.action = na.fail)
+fullMod_dredge <- update(mod_full_lin, na.action = na.fail)
 dd <- dredge(fullMod_dredge, subset = 
                dc(compartment_age, I(compartment_age^2)) && 
                dc(canopy_closure, I(canopy_closure^2)) &&

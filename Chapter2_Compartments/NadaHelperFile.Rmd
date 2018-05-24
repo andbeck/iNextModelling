@@ -2,89 +2,86 @@
 title: "NadaHelperFile"
 author: "APB"
 date: "16/05/2018"
-output: html_document
+output:
+  html_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Overview of Modelling and Outputs
+### Overview of Data
 
-The data read in are derived from the combination of habitat variables and running iNEXT.  The habitat data have been processed by APB and NB to produce means, standard errors and various other variables.  The working dataframe however focuses on mean values.
+The data we are using are
+
+1) `compartment_modelling.csv`: thus is a dataframe containing estimates of species richness from iNEXT and habitat data for each compartment.
+
+2) `comp_age.csv`: these are the raw abundance data of each species in each compartment
+
+### Overview of modelling
+We are implementing 2 methods of analysis.  
+
+The first uses the species richness data estimated as the Asymptotic value from iNEXT. We use `lm(SpeciesRichness ~ Habitat Characteristics)` and mix this with an analysis of effect sizes.
+
+This asks the simple question of whether habitat characteristics influence the species richness.
+
+The second uses the raw abundances of every species for each compartment.  The approach here uses a multivariate generalised linear model specifically designed to use at site x species matrix of observations of species abundances.  The tools are in the `mvabund` package which has a great introduction via https://www.youtube.com/watch?v=KnPkH6d89l4 and a good blog introduction via http://environmentalcomputing.net/introduction-to-mvabund/. 
+
+This asks whether the habitat characteristics influence the species composition of the community.
 
 ### library preps
 ```{r, warning = FALSE, message = FALSE}
+# for plotting
 library(GGally)
 library(gridExtra)
 library(ggrepel)
-library(car)
-library(heplots)
-library(MuMIn)
-library(ggfortify)
-library(MASS)
-library(tidyverse)
+
+# for modelling and data wrangling
+library(car) # Anova()
+library(heplots) # etasq effect size
+library(mvabund) # manyglm 
+library(tidyverse) # lots + ggplot2
+
+library(broom)
+library(knitr)
 ```
 
 
 ### Read in the data
-```{r}
-compartment_data <- read_csv("./DataSources/compartment_modelling.csv")
+```{r, message=FALSE}
+SR_data <- read_csv("./DataSources/compartment_modelling.csv")
+comp_age <- read_csv("./DataSources/comp_age.csv")
 ```
 
-### Some First manipulations and plotting
-
-Here we isolate the Species Richness Data and the Simpsons Diversity Data.  We also note that unlogged data is currently set at 200 years old.
+The SR_data is ready for use in the linear modelling framework.  For the mvabund method, we need two objects: the matrix of site x species values and the habitat data frame.
 
 ```{r}
-# Isolate Species Richness data (order/q = 0)
-# unlogged currenty as 200 yrs old.
+# prepare the abundance data
+abund_dat <- comp_age %>% 
+  ungroup() %>% 
+  select(starts_with("Sp.")) %>% 
+  mvabund()
 
-SR_data <- filter(compartment_data, order == 0) %>% 
-  mutate(compartment_age = as.numeric(as.character(compartment_age)))
-
-Simp_data <- filter(compartment_data, order == 2) %>% 
-  mutate(compartment_age = as.numeric(as.character(compartment_age)))
-
-# check the columns
-head(SR_data)
-
-# produce a pairs correlations
-ggpairs(select(SR_data,compartment_age:near_Primary), lower = list(combo = wrap("facethist", binwidth = 0.5)))
+# prepare the habitat data
+hab_dat <- SR_data %>% 
+  select(-Site, -order, -coverage, - diversity_estimate) %>% 
+  as.data.frame()
 ```
 
-This pairs correlation plot indicates that there are very few strong relationships between traits.  The strongest, at 0.6 is between canopy closure and understory height.  We will check again on this later but it's not a very strong relationship to worry about.
+### The iNEXT data and linear Model + effect sizes
 
-### First look at how species richness varies with time since logging
+First, lets look at species richness (Asymptotic estimates from iNEXT) versus the habitat variables.
 
-We use ggplot on the species richness and the simpson's diversity data, making a plot where the x-axis is age and the y-axis is the diversity metric.
-
-```{r}
-SR_plot <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
+```{r, echo=FALSE}
+# Formal plots ----
+SR_age <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
   labs(x = "Compartment Age (Years Since Last Logging)",
        y = "Species Richness Estimate") +
   theme_bw()
 
-Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))+
-  geom_point(size = 5)+
-  geom_text_repel(aes(label=Site), point.padding = 0.5) +
-  labs(x = "Compartment Age (Years Since Last Logging)",
-       y = "Simpsons Diversity Estimate") +
-  theme_bw()
-
-grid.arrange(SR_plot, Simp_plot, ncol = 1)
-```
-
-It should be clear from these plots that our decision about the __unlogged__ forest age is going to impact on things.
-
-###  Species Richness vs. Habitat Characteristics
-
-Here we can look at how species richness varies with the 4 major habitat characteristics
-
-```{r}
-# habitat plots ----
 SR_canopy_closure <- ggplot(SR_data, aes(x = canopy_closure, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
@@ -116,123 +113,117 @@ SR_No_WaterBodies <- ggplot(SR_data, aes(x = No_WaterBodies, y = diversity_estim
 SR_Primary <- ggplot(SR_data, aes(x = near_Primary, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
-  labs(x = "Primary Forest Proximity",
+  labs(x = "near_Primary",
        y = "Species Richness Estimate") +
   theme_bw()
 
-grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
-             SR_understory_height, SR_No_WaterBodies, SR_Primary,
+grid.arrange(SR_age, SR_canopy_closure, 
+             SR_leaf_litter_depth, SR_understory_height, 
+             SR_No_WaterBodies, SR_Primary,
              ncol = 3)
-
 ```
 
-### Now, the modelling basics.
-
-Lets start by fitting the big model to the species richness data.  There is some risk here, in that we are fitting 7 variables to 18 data points.  We will also in this large model, fit linear AND quadratic terms.  This means we will fit `y ~ intercept + x + x^2` which allows a hump or valley shape for each of the habitat or age variables.
-
-We are doing this using what are known as __orthoganal polynomials__ whih
-
-I have also log-transformed the diversity estimate, as this makes the residuals (diagnostics) better.
+Now, lets build a model.  We start by allowing `x` and `x^2` terms and asking whether there is a difference between the polynomial model and a linear model.  There is no evidence that adding the second order terms explains additional variation, so we will focus on the linear model (the p-value says that there is no difference between the polynomial and linear model, so we use the simplest model....)
 
 ```{r}
-fullMod <- lm(log(diversity_estimate) ~ compartment_age + I(compartment_age^2)+
-                canopy_closure + I(canopy_closure^2)+
-                leaf_litter_depth + I(leaf_litter_depth^2) +
-                understory_height + I(understory_height^2) +
-                No_WaterBodies + near_Primary,
-              data = SR_data)
+# linear model with all terms; polynomial 2 and 1 
+mod_full_poly <- lm(diversity_estimate ~ poly(compartment_age,2) + 
+                 poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
+                 No_WaterBodies + near_Primary, 
+                 data = SR_data)
+
+mod_full_lin <- lm(diversity_estimate ~ compartment_age + 
+                 canopy_closure + leaf_litter_depth + understory_height + 
+                 No_WaterBodies + near_Primary, data = SR_data)
+
+# step 1 - no difference between models via SS/F
+anova(mod_full_poly, mod_full_lin)
 ```
 
-Lets check the diagnostics
+We need to check the diagnostics though... and they aren't great for the linear model, so we'll need to refit it with `log(SpeciesRichness)` to deal with that hump shape in the residuals.
 
 ```{r}
-autoplot(fullMod, smooth.colour = NA)
+# step 3 - apply log() transformation to linear model to fix bad residuals
+mod_full_lin_log <- lm(log(diversity_estimate) ~ compartment_age + 
+                 canopy_closure + leaf_litter_depth + understory_height + 
+                 No_WaterBodies + near_Primary, data = SR_data)
+
+# step 4 diagnostics OK now
+par(mfrow = c(2,4))
+plot(mod_full_lin, add.smooth = FALSE)
+plot(mod_full_lin_log, add.smooth = FALSE)
 ```
 
-These look good.
-
-#### Exploring the results/model and moving forward.
-
-Our first step is to look at the anova table.  We will use `Anova()` __with a big A__ from the car package to get a table where all the p-values are properly relative to the others.
+Now we can make some inference using `Anova()` from the car package and `etasq()` from heplots package to get effect sizes.
 
 ```{r}
-Anova(fullMod)
+# step 5: Anova - nothing is signficant
+Anova(mod_full_lin_log)
+
+# Step 6: Medium effect sizes....
+eta <- etasq(mod_full_lin_log, anova = TRUE)
+eta
 ```
 
-So, there is not a lot of evidence for anything.... But there are lots of terms in the model....
+#### Linear Modelling with iNEXT data: Conclusions
 
-### NEXT STEP: model averaging and the MuMIns.
+1) There are no significant effects of the habitat characteristics on Asymptotic estimates of species richness derived from iNEXT for each compartment.
 
-MuMins - look them up on wikipedia!
+2) The effect size of being close or not to a primary forest is Large
 
-Karl suggested the information theoretic approach.  This is fully based around AIC and the Burnham and Anderson book.  AIC >=2 for a term in the model means it is valuable.  The way it works is to fit the model with and without the term.  We then take the R^2 for each term and discount it by the number of total parameters in the bigger model.  Why?  Because just adding terms, whether they are signficant/important or not, will elevate R^2. Remember that R^2 for us is the amount of variation in Species Richness explained by the terms (age and habitat etc).
+3) The effect size of Compartment age is Medium and of understory height is small.
 
-To do this, we will use MuMin, a package that automates this process using a function called `dredge()`
+4) The other terms have very small effect size
+
+### MVABUND approach
+The mvabund approach fits a generalised linear model (GLM) to each species abundances with a common set of predictor variables and specifies the appropriate mean-variance relationship for abundance data (mean increases with variance in count data). 
+
+The approach uses resampling to test for significant community level responses to our predictors.
+
+Lets start by visualing the count data for the most abundance species.  We need to do some setup of the data.  We need a compartment x species matrix as our response variable and then a data frame with the habitat data.
 
 ```{r}
-# update model to work with mumin
-fullMod_dredge <- update(fullMod, na.action = na.fail)
+# prepare the abundance data
+abund_dat <- comp_age %>% 
+  ungroup() %>% 
+  select(starts_with("Sp.")) %>% 
+  mvabund()
 
-# dc - dependency chain - we are forcing MuMIn to never let the ^2 term 
-# be in the model without the linear term
-dd <- dredge(fullMod_dredge, subset = 
-               dc(compartment_age, I(compartment_age^2)) && 
-               dc(canopy_closure, I(canopy_closure^2)) &&
-               dc(leaf_litter_depth, I(leaf_litter_depth^2)) && 
-               dc(understory_height, I(understory_height^2)))
-  
-
-# set for delta AICc < 3 : the AICc is compared to the best model
-# we want ones that are close to the best model
-# delta = 'difference in'
-# delta < 3 gives a set of 4 similar models
-summary(model.avg(dd, subset = delta < 3))
-
-# best model
-summary(get.models(dd, 1)[[1]])
+# prepare the habitat data
+hab_dat <- SR_data %>% 
+  select(-Site, -order, -coverage, - diversity_estimate) %>% 
+  as.data.frame()
 ```
 
-So, this is an approach based on a variation of p-values and discounting R^2.  It gives the following results:
+We can first visualise the abundances of the most abundant species.  There are lots of 0's, as we know.
 
-* There are 4 models with similar explanatory power which involve __compartment age__, __understory height__ and __leaf litter depth__ as a polynomial (hump shaped).
-    - The first (best model) is with __leaf litter depth__ as a polynomial, only.
-    - The next best model includes __compartment age__ with __leaf litter depth__ as a polynomial
-    - The third best model is __compartment age__ alone
-    - The fourth best includes __understory height__ with __leaf litter depth__ as a polynomial
-* An __averaged model__ based on the 4 that are included at delta AICc < 3, is produced.
+```{r, echo = FALSE, message=FALSE}
+boxplot(abund_dat)
+```
 
-Remember, this is a significance testing paradigm.  It is about testing whether, were we to sample under the expectation of slopes of zero, we'd find non-zero slopes.  It does not tell us how big the effects are....
-
-
-### Effect sizes vs. model averaging
-
-An (alternative) next step we can take is to evaluate the __effect sizes__ of each of the terms in the original model.  
-
-The effect size is a simple way of quantifying the effect of a term that emphasises the size of the difference rather than confounding this with sample size.  It is a standardised estimate of how much variance is explained by a term... reporting of effect sizes facilitates the interpretation of the substantive, as opposed to the statistical, significance of a research result.
-
-We can get effect sizes using the `etasq()` function for anova/multiple regression analyses found in the car libary.
-
-partial eta squared values are interpreted as 0.01 (small), 0.09 (medium) and 0.25 (large) 
+We can fit the multivariate model, assuming poisson or negative binomial distributiuo for the count data.  Turns out that with all those 0's, the negative binomial is best
 
 ```{r}
-etasq(fullMod, partial = TRUE)
+# build the multivariate model of site x species abundance ~ habitat
+mv_model <- manyglm(abund_dat ~ compartment_age+
+                   canopy_closure +
+                   leaf_litter_depth +
+                   understory_height +
+                   No_WaterBodies +
+                   near_Primary, 
+                 data = hab_dat, family = "negbinomial")
+
+par(mfrow = c(1,3))
+plot(mv_model, which = 1:3)
 ```
 
-This is interesting stuff.  Now we have some insight into the __effect size__ of the variables.  
+Now we can check if we detect any effects of the habitat variables on the species composition of fireflies in the community.
 
-* __understory height__ has the strongest effect on species richness
-* __canopy closure__ and __proximity to primary forests__ also have a strong effects (close to 0.25)
-* __compartment age__, __waterbodies__ and __leaf litter depth__ have small- medium effects.
+```{r}
+set.seed(2452018)
+kable(anova(mv_model)$table)
+```
 
-
-### What to do?
-
-We have two results.
-
-* The model averaging approach.
-    - Best model(s) are based around __leaf litter depth__
-
-* The standard model + effect size approach
-    - Biggest effect size is __understory height__
-
+#### MVabund Conclusions
+Our analysis indicate that __leaf litter depth__ and __the number of water bodies__ influence community composition.
 
