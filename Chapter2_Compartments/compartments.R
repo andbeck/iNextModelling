@@ -4,12 +4,13 @@
 library(iNEXT)
 library(MASS) # stepAIC multiple regression tools
 library(heplots) # effect sizes +
+library(mvabund) # 
 
-library(tidyverse)
 library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
 library(GGally)
+library(tidyverse)
 
 ## Step 0: data import ----
 
@@ -172,7 +173,14 @@ Simp_plot <- ggplot(Simp_data, aes(x = compartment_age, y = diversity_estimate))
 
 grid.arrange(SR_plot, Simp_plot, ncol = 1)
 
-# habitat plots ----
+# Formal plots ----
+SR_age <- ggplot(SR_data, aes(x = compartment_age, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "Compartment Age (Years Since Last Logging)",
+       y = "Species Richness Estimate") +
+  theme_bw()
+
 SR_canopy_closure <- ggplot(SR_data, aes(x = canopy_closure, y = diversity_estimate))+
   geom_point(size = 5)+
   geom_text_repel(aes(label=Site), point.padding = 0.5) +
@@ -201,46 +209,80 @@ SR_No_WaterBodies <- ggplot(SR_data, aes(x = No_WaterBodies, y = diversity_estim
        y = "Species Richness Estimate") +
   theme_bw()
 
-grid.arrange(SR_canopy_closure, SR_leaf_litter_depth,
-             SR_understory_height, SR_No_WaterBodies,
-             ncol = 2)
+SR_Primary <- ggplot(SR_data, aes(x = near_Primary, y = diversity_estimate))+
+  geom_point(size = 5)+
+  geom_text_repel(aes(label=Site), point.padding = 0.5) +
+  labs(x = "near_Primary",
+       y = "Species Richness Estimate") +
+  theme_bw()
 
-## exploratory modelling ----
+grid.arrange(SR_age, SR_canopy_closure, 
+             SR_leaf_litter_depth, SR_understory_height, 
+             SR_No_WaterBodies, SR_Primary,
+             ncol = 3)
 
-# linear model with all terms.  log transforming the Estimator may be justified
-mod_full_poly <- lm(log(diversity_estimate) ~ poly(compartment_age,2) + 
+## modelling ----
+
+# linear model with all terms; polynomial 2 and 1 
+mod_full_poly <- lm(diversity_estimate ~ poly(compartment_age,2) + 
                  poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
                  No_WaterBodies + near_Primary, 
-               data = SR_data)
+                 data = SR_data)
 
-mod_full_lin <- lm(log(diversity_estimate) ~ compartment_age + 
+mod_full_lin <- lm(diversity_estimate ~ compartment_age + 
                  canopy_closure + leaf_litter_depth + understory_height + 
-                 No_WaterBodies + near_Primary, 
-               data = SR_data)
+                 No_WaterBodies + near_Primary, data = SR_data)
 
+# step 1 - no difference between models via SS/F
+anova(mod_full_poly, mod_full_lin)
 
-par(mfrow = c(2,4))
-plot(mod_full_poly)
+# step 2 - but the residuals of mod_full_lin are terrible
+par(mfrow = c(2,2))
 plot(mod_full_lin)
 
-# signficnant (almost) age and leaf litter.
-# log transformation removes age.
-Anova(mod_full_poly)
-Anova(mod_full_lin)
+# step 3 - apply log() transformation to linear model
+mod_full_lin_log <- lm(log(diversity_estimate) ~ compartment_age + 
+                 canopy_closure + leaf_litter_depth + understory_height + 
+                 No_WaterBodies + near_Primary, data = SR_data)
 
-# step AIC
-step_full_poly <- stepAIC(mod_full_poly)
-step_full_lin <- stepAIC(mod_full_lin)
+# step 4 diagnostics OK now
+par(mfrow = c(2,2))
+plot(mod_full_lin_log, add.smooth = FALSE)
 
-Anova(step_full_poly)
-Anova(step_full_lin)
+# step 5: Anova - nothing is signficant
+Anova(mod_full_lin_log)
 
-# Medium effect sizes....
-etasq(step_full_poly, anova = TRUE)
-etasq(step_full_lin, anova = TRUE)
+# Step 6: Medium effect sizes....
+etasq(mod_full_lin_log, anova = TRUE)
 
-# coefs
-summary(step_full_poly)
+# MVABUND approach ----
+
+# prepare the abundance data
+abund_dat <- comp_age %>% 
+  ungroup() %>% 
+  select(starts_with("Sp.")) %>% 
+  mvabund()
+
+# prepare the habitat data
+hab_dat <- SR_data %>% 
+  select(-Site, -order, -coverage, - diversity_estimate) %>% 
+  as.data.frame()
+
+# view some of the abundance data
+boxplot(abund_dat)
+
+# build the multivariate model of site x species abundance ~ habitat
+mv_model <- manyglm(abund_dat ~ compartment_age+
+                   canopy_closure +
+                   leaf_litter_depth +
+                   understory_height +
+                   No_WaterBodies +
+                   near_Primary, 
+                 data = hab_dat, family = "poisson")
+
+# model inference
+anova(mv_model)
+
 
 # model averaging approach.
 library(MuMIn)
