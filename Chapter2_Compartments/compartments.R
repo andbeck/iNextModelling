@@ -76,12 +76,28 @@ names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
 # keep these for later adding (they won't work with iNEXT but we need the species richness = 1)
 compartment_oneTransect <- compartment_input %>% keep(function(x) length(x)==1)
 
+# set up category based data for iNEXT
+category_use <- comp_age %>% 
+  group_by(ForestCategory) %>% 
+  select(starts_with("Sp.")) %>% 
+  summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
+
+fc <- unique(category_use$ForestCategory)
+rn <- colnames(category_use)[-1]
+  
+category_use <- data.frame(t(as.data.frame(category_use))[-1,])
+names(category_use) <- c("five","fifteen","twentyfive","forty1","not")
+category_use <- apply(category_use, 2, function(x) as.numeric(x))
+rownames(category_use) <- rn
+category_use <- data.frame(category_use)
+
+
 #  Step 3: iNEXT modelling happens here -----
 
 # run iNEXT (it works on a list)
 # ignore warnings.
 compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
-
+category_mod <- iNEXT(category_use)
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)
 # set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
