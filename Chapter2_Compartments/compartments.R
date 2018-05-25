@@ -98,17 +98,32 @@ category_use <- data.frame(category_use)
 # ignore warnings.
 compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
 category_mod <- iNEXT(category_use)
+
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)
 # set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
 coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = 0.9) %>% 
   rename(Site = site) 
 
+coverage_min_diversity_cat <- estimateD(category_use, base = 'coverage', level = 0.9) %>% 
+  rename(Site = site) %>% filter(order == 0)
+
+
 # visualise the results
 # feel free to create more than one version of this!
 par(mfrow = c(1,2))
 plot(compartment_mod, type = 1)
-plot(compartment_mod, type = 3)
+plot(category_mod, type = 1)
+
+ggplot(coverage_min_diversity_cat, aes(x = factor(Site, 
+                                                  levels = c("five","fifteen","twentyfive","forty1","not")), 
+                                       y = qD, 
+                                       ymin = qD.LCL, ymax = qD.UCL,
+                                       group = 1))+
+  geom_point()+geom_line()+
+  geom_errorbar(width =0)+
+  xlab("Time Since Last Logging") + ylab("Species Richness") +
+  theme_bw()
 
 # Step 4: Collect Asymptotic estimates for downstream analyses and add habitat data ----
 diversity_data_observations <- compartment_mod$AsyEst %>% arrange(as.character(Site))
