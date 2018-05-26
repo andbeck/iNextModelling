@@ -255,6 +255,7 @@ grid.arrange(SR_age, SR_canopy_closure,
 
 ## linear modelling with iNEXT Asymptotes ----
 
+# Species Richness
 # linear model with all terms; polynomial 2 and 1 
 mod_full_poly <- lm(diversity_estimate ~ poly(compartment_age,2) + 
                  poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
@@ -286,6 +287,37 @@ Anova(mod_full_lin_log)
 
 # Step 6: Medium effect sizes....
 eta <- etasq(mod_full_lin_log, anova = TRUE)
+
+
+# Simpsons Diversity
+# linear model with all terms; polynomial 2 and 1 
+mod_full_poly_simp <- lm(diversity_estimate ~ poly(compartment_age,2) + 
+                      poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
+                      No_WaterBodies + near_Primary, 
+                    data = Simp_data)
+
+mod_full_lin_simp <- lm(diversity_estimate ~ compartment_age + 
+                     canopy_closure + leaf_litter_depth + understory_height + 
+                     No_WaterBodies + near_Primary, data = Simp_data)
+
+# step 1 - no difference between models via SS/F
+anova(mod_full_poly_simp, mod_full_lin_simp)
+
+# step 2: check diagnostics of simple model
+par(mfrow = c(2,2))
+plot(mod_full_lin_simp, add.smooth = FALSE)
+
+# Step 3: Inference - the residials are fine without log for Simpsons
+# and we find a singificant effect of compartment age!
+# simpsons diversity increases with time since logging.
+Anova(mod_full_lin_simp)
+summary(mod_full_lin_simp)
+
+# Step 4: effect sizes
+# and time since logging has a large effect size too!
+# and proximity to primary has a medium effect size.
+eta_simp <- etasq(mod_full_lin_simp, anova = TRUE)
+eta_simp
 
 # MVABUND approach ----
 
@@ -320,10 +352,12 @@ par(mfrow = c(1,3))
 plot(mv_model, which = 1:3)
 
 # model inference
+set.seed(260518)
 anova(mv_model)
 
 # betapart to dig deeper?
 library(betapart)
+library(vegan)
 
 beta_dat <- comp_age %>% 
   ungroup() %>% 
@@ -336,17 +370,33 @@ betaCore
 
 # the MVabund model highlighted leaf litter and No.Water Bodies
 # lets create a 3 level factor for each of these, and assess beta
+timeSince_3fac <- cut(hab_dat$compartment_age, breaks = c(0,18,50,200), 
+                     labels = c("recent", "recovered", "primary-like")) 
+canopy_3fac <- cut(hab_dat$canopy_closure, 3, 
+                   labels = c("closed", "speckled", "open"))
 litter_3fac <- cut(hab_dat$leaf_litter_depth, 3, 
                    labels = c("shallow", "med", "deep"))
+understory_3fac <- cut(hab_dat$understory_height, breaks = c(0,65,80,100),
+                      labels = c("low", "med", "tall"))
 water_3fac <- cut(hab_dat$No_WaterBodies, 3, 
                   labels = c("few", "mid", "many"))
 
-par(mfrow = c(1,2))
-plot(betadisper(betaCore[[3]], litter_3fac), main = "Litter Depth Beta")
-plot(betadisper(betaCore[[3]], water_3fac), main = "No of Water Bodies Beta")
+par(mfrow = c(2,3))
+plot(betadisper(betaCore[[3]], timeSince_3fac), main = "Time Since Logging")
+plot(betadisper(betaCore[[3]], canopy_3fac), main = "Canopy Closure")
+plot(betadisper(betaCore[[3]], litter_3fac), main = "Litter Depth **")
+plot(betadisper(betaCore[[3]], understory_3fac), main = "Understory Height")
+plot(betadisper(betaCore[[3]], water_3fac), main = "Water Bodies **")
+plot(betadisper(betaCore[[3]], hab_dat$near_Primary), main = "Near Primary")
 
+# betapart approach does not show any signficant changes
+anova(betadisper(betaCore[[3]], timeSince_3fac))
+anova(betadisper(betaCore[[3]], canopy_3fac))
 anova(betadisper(betaCore[[3]], litter_3fac))
+anova(betadisper(betaCore[[3]], understory_3fac))
 anova(betadisper(betaCore[[3]], water_3fac))
+anova(betadisper(betaCore[[3]], hab_dat$near_Primary))
+
 
 # model averaging approach ----
 library(MuMIn)
