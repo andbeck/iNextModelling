@@ -182,6 +182,9 @@ SR_data <- filter(df, order == 0) %>%
 Simp_data <- filter(df, order == 2) %>% 
   mutate(compartment_age = as.numeric(as.character(compartment_age)))
 
+Shan_data <- filter(df, order == 1) %>% 
+  mutate(compartment_age = as.numeric(as.character(compartment_age)))
+
 head(SR_data)
 tail(SR_data)
 
@@ -318,6 +321,62 @@ summary(mod_full_lin_simp)
 # and proximity to primary has a medium effect size.
 eta_simp <- etasq(mod_full_lin_simp, anova = TRUE)
 eta_simp
+
+
+# Shannons Diversity
+# linear model with all terms; polynomial 2 and 1 
+mod_full_poly_shan <- lm(diversity_estimate ~ poly(compartment_age,2) + 
+                           poly(canopy_closure,2) + poly(leaf_litter_depth,2) + poly(understory_height,2) + 
+                           No_WaterBodies + near_Primary, 
+                         data = Shan_data)
+
+mod_full_lin_shan <- lm(diversity_estimate ~ compartment_age + 
+                          canopy_closure + leaf_litter_depth + understory_height + 
+                          No_WaterBodies + near_Primary, data = Shan_data)
+
+# step 1 - no difference between models via SS/F
+anova(mod_full_poly_shan, mod_full_lin_shan)
+
+# step 2: check diagnostics of simple model
+par(mfrow = c(2,2))
+plot(mod_full_lin_shan, add.smooth = FALSE)
+
+# Step 3: Inference - the residials are fine without log for Simpsons
+# and we find a singificant effect of compartment age!
+# simpsons diversity increases with time since logging.
+Anova(mod_full_lin_shan)
+summary(mod_full_lin_shan)
+
+# Step 4: effect sizes
+# and time since logging has a large effect size too!
+# and proximity to primary has a medium effect size.
+eta_shan <- etasq(mod_full_lin_shan, anova = TRUE)
+eta_shan
+
+effect_size_data <- data.frame(Term = rownames(eta), 
+           Species_Richness = eta$`Partial eta^2`,
+           Simpson = eta_simp$`Partial eta^2`,
+           Shannon = eta_shan$`Partial eta^2`)
+
+effect_size_plot <- na.omit(
+  gather(effect_size_data, key = q, value = Partial_eta, -Term))
+
+ggplot(effect_size_plot, aes(x = Term, y = Partial_eta, group = q, colour = q))+
+  geom_point(size = 5)+
+  geom_line()+
+  ylab(expression(paste("Partial ", eta^2)))+
+  theme_bw(base_size = 15)+
+  coord_flip()
+
+out_anovas <- na.omit(data.frame(
+  q = rep(c("Species Richness", "Shannon", "Simpson"), each = 7),
+  rbind(
+    tidy(eta), tidy(eta_shan), tidy(eta_simp))))
+
+out_anovas <- out_anovas %>% mutate_if(is.numeric, funs(round(., 3))) %>% 
+  rename(Term = term, `F` = statistic, SS = sumsq)
+
+write_csv(out_anovas, path = "./Chapter2_Compartments/DataSources/out_anovas.csv")
 
 # MVABUND approach ----
 

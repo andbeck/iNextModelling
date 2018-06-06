@@ -1,0 +1,19 @@
+q,Term,Partial.eta.2,SS,df,F,p.value
+Species Richness,compartment_age,0.075,0.299,1,0.893,0.365
+Species Richness,canopy_closure,0.009,0.033,1,0.099,0.758
+Species Richness,leaf_litter_depth,0,0.001,1,0.003,0.959
+Species Richness,understory_height,0.025,0.094,1,0.282,0.606
+Species Richness,No_WaterBodies,0.002,0.007,1,0.02,0.891
+Species Richness,near_Primary,0.2,0.922,1,2.758,0.125
+Shannon,compartment_age,0.29,3.448,1,4.482,0.058
+Shannon,canopy_closure,0.002,0.018,1,0.024,0.881
+Shannon,leaf_litter_depth,0.007,0.056,1,0.073,0.792
+Shannon,understory_height,0.014,0.124,1,0.162,0.695
+Shannon,No_WaterBodies,0.016,0.137,1,0.178,0.681
+Shannon,near_Primary,0.178,1.828,1,2.376,0.151
+Simpson,compartment_age,0.377,3.342,1,6.666,0.026
+Simpson,canopy_closure,0.002,0.009,1,0.018,0.896
+Simpson,leaf_litter_depth,0.009,0.048,1,0.096,0.762
+Simpson,understory_height,0.031,0.176,1,0.35,0.566
+Simpson,No_WaterBodies,0.015,0.085,1,0.169,0.689
+Simpson,near_Primary,0.139,0.888,1,1.77,0.21
