@@ -11,6 +11,7 @@ library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
 library(GGally)
 library(broom)
+library(ggalt)
 library(tidyverse)
 
 ## Step 0: data import ----
@@ -361,11 +362,13 @@ effect_size_data <- data.frame(Term = rownames(eta),
 effect_size_plot <- na.omit(
   gather(effect_size_data, key = q, value = Partial_eta, -Term))
 
-ggplot(effect_size_plot, aes(x = Term, y = Partial_eta, group = q, colour = q))+
-  geom_point(size = 5)+
-  geom_line()+
+ggplot(effect_size_plot, aes(x = Term, y = Partial_eta, colour = q))+
+  geom_lollipop(size = 1)+
   ylab(expression(paste("Partial ", eta^2)))+
+  facet_wrap(~q) +
+  geom_hline(yintercept = c(0.01,0.06,0.28), linetype = 'dashed')+
   theme_bw(base_size = 15)+
+  guides(colour = FALSE)+
   coord_flip()
 
 out_anovas <- na.omit(data.frame(
