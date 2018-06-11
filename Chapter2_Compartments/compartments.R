@@ -5,6 +5,7 @@ library(iNEXT)
 library(MASS) # stepAIC multiple regression tools
 library(heplots) # effect sizes +
 library(mvabund) # 
+library(vegan)
 
 library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
@@ -109,6 +110,63 @@ coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = 
 coverage_min_diversity_cat <- estimateD(category_use, base = 'coverage', level = 0.9) %>% 
   rename(Site = site) %>% filter(order == 0)
 
+# evenness ----
+## Species richness (S) and Pielou's evenness (J):
+# S <- specnumber(BCI) ## rowSums(BCI > 0) does the same...
+# J <- H/log(S)
+
+even <- function(x){
+  H <- diversity(x)
+  S <- sum(x>0)
+  J <- H/log(S)
+  return(J)
+}
+
+# the pieces
+compartment_use$PB87
+diversity(compartment_use$PB87)
+sum(compartment_use$PB87>0)
+
+# test on single compartment
+even(compartment_use$PB87)
+
+# run on all compartments
+evens <- t(map_df(compartment_input, function(x) even(x))) %>% data.frame()
+
+# craft data frame for plotting
+names(evens) <- "evenness"
+evens <- rownames_to_column(evens)
+names(evens)[1] <- "Compartment"
+evens <- arrange(evens, Compartment)
+habs <- arrange(habitat, Compartment)
+even_habs <- data.frame(evenness = evens$evenness, habs)
+
+e1 <- ggplot(even_habs, aes(x = Age.of.forest, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+e2 <- ggplot(even_habs, aes(x = herb_mean_height, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+e3 <- ggplot(even_habs, aes(x = litter_mean_depth, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+e4 <- ggplot(even_habs, aes(x = canopy_mean_closure, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+e5 <- ggplot(even_habs, aes(x = water_mean_number, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+e6<- ggplot(even_habs, aes(x = AdjacentUnlogged, y = evenness, label = Compartment))+
+  geom_point(size = 3)+
+  geom_text_repel()
+
+grid.arrange(e1,e2,e3,e4,e5,e6, ncol = 3)
+
 
 # visualise the results
 # feel free to create more than one version of this!
@@ -169,7 +227,7 @@ head(one_DF)
 head(df_prep)
 
 df <- rbind(df_prep, one_DF)
-
+head(df)
 # quick check
 head(df)
 
