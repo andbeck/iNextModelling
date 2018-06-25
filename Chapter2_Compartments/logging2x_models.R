@@ -57,7 +57,8 @@ data_per_compartment <-
              SR_per_compartment, 
              shannon_per_compartment,
              simpson_per_compartment)
-  
+
+# iNEXT by compartment  
 iNEXT_per_compartment <- two_times %>% select_if(is.numeric)
 
 iNEXT_out <- list()
@@ -67,7 +68,6 @@ for(i in 1:15){
   use <- tmp[tmp>0]
   iNEXT_out[[i]] <- iNEXT(use)
 }
-
 
 
 # create data frame of once vs. twice 
