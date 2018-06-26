@@ -64,14 +64,47 @@ iNEXT_per_compartment <- two_times %>% select_if(is.numeric)
 iNEXT_out <- list()
 
 for(i in 1:15){
+  # get the compartment data
   tmp <- as.numeric(iNEXT_per_compartment[i,])
+  # get rid of 0'
   use <- tmp[tmp>0]
-  iNEXT_out[[i]] <- iNEXT(use)
-}
+  # run iNEXT via estimateD (coverage) 
+  # dealing with situations where 1 species doesn't work
+  # and where no species doesn't work
+  # if there is 1 species, the estimate is 1.
+  if(length(use)>1)
+    {iNEXT_out[[i]] <- estimateD(use, base = 'coverage', level = 0.9)} 
+  else
+    if(length(use == 1)){
+      {iNEXT_out[[i]] <- data.frame(m = NA, method = NA, order = NA, SC = NA, qD = 1, qD.LCL = NA, qD.UCL = NA)}}
+    else
+    {iNEXT_out[[i]] <- data.frame(m = NA, method = NA, order = NA, SC = NA, qD = NA, qD.LCL = NA, qD.UCL = NA)}
+  }
 
 
-# create data frame of once vs. twice 
-# for basic iNEXT analysis
+names(iNEXT_out) <- two_times$CompartmentName
+
+# build predictions of qd = 0,1,2 at 90% for each compartment in the once_twice
+
+coverage90_two_times <- map_df(iNEXT_out, bind_rows) %>% 
+  data.frame(CompartmentName = 
+               rep(two_times$CompartmentName, times = c(3,3,1,3,1,3,3,1,3,1,3,3,3,3,1)), .)
+
+# spread it for the master table for Nada
+add2_datapercomp <- coverage90_two_times %>% 
+  select(CompartmentName, qD, order) %>% 
+  spread(order, qD) %>% 
+  data.frame()
+
+TwoTimes_iNEXT90 <- data_per_compartment %>% bind_cols(add2_datapercomp) %>% 
+  select(-CompartmentName1) %>% 
+  rename(order_0_at_90 = X0, order_1_at_90 = X1, order2_at_90 = X2, no_iNEXT = X.NA.)
+
+write_csv(TwoTimes_iNEXT90, path  = "./Chapter2_Compartments/DataSources/TwoTimes_iNEXT90.csv")
+
+names(TwoTimes_iNEXT90)
+
+# create data frame of once vs. twice for overview iNEXT ----
 df <- two_times %>% 
   gather(Species, Richness, -CompartmentName, - LoggingRotation) %>% 
   group_by(Species, LoggingRotation) %>% 
@@ -88,3 +121,4 @@ two_times_input
 
 model <- iNEXT(two_times_input)
 plot(model)
+
