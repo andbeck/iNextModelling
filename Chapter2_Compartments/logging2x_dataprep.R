@@ -44,7 +44,7 @@ two_times
 
 # basic stats on once vs. twice
 SR_per_compartment <- two_times %>% select_if(is.numeric) %>% 
-  apply(., 1, sum)
+  apply(., 1, function(x) sum(x>0))
 
 shannon_per_compartment <- two_times %>% select_if(is.numeric) %>% 
   apply(., 1, diversity)
