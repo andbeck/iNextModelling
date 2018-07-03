@@ -32,22 +32,29 @@ two_times <- compart %>%
   filter(CompartmentName == "B10" |
            CompartmentName == "B12" |
            CompartmentName == "B14" |
+           CompartmentName == "B17" |
+           CompartmentName == "B18" |
+           CompartmentName == "B19" |
            CompartmentName == "B3" |
+           CompartmentName == "BT7" |
            CompartmentName == "JI38B" |
            CompartmentName == "JI39" |
+           CompartmentName == "JI4" |
            CompartmentName == "JI40" |
            CompartmentName == "JI42" |
+           CompartmentName == "JI52" |
+           CompartmentName == "JI64" |
+           CompartmentName == "JU100" |
+           CompartmentName == "JU31N" |
            CompartmentName == "JU31Y" |
            CompartmentName == "JU68" |
            CompartmentName == "JU93" |
            CompartmentName == "PB87" |
-           CompartmentName == "UTT35" |
-           CompartmentName == "UTT41" |
-           CompartmentName == "JI52" |
-           CompartmentName == "PS52" |
-           CompartmentName == "JU100" |
            CompartmentName == "PS26" |
-           CompartmentName == "UTT27") %>% 
+           CompartmentName == "PS52" |
+           CompartmentName == "UTT27" |
+           CompartmentName == "UTT35" |
+           CompartmentName == "UTT41") %>% 
   select(CompartmentName, LoggingRotation,Sp.01:Sp.27) %>%
   group_by(CompartmentName, LoggingRotation) %>%
   select_if(~!all(is.na(.))) %>% 
@@ -55,7 +62,7 @@ two_times <- compart %>%
   mutate(LoggingRotation = case_when(
     LoggingRotation == 1 ~ "once",
     LoggingRotation == 2 ~ "twice",
-    is.na(LoggingRotation) ~ "primary")) %>% 
+    is.na(LoggingRotation) ~ "unlogged")) %>% 
   ungroup()
 
 two_times
