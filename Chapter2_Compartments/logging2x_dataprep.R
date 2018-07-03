@@ -85,6 +85,8 @@ data_per_compartment <-
 
 data_per_compartment
 
+rr <- ifelse(data_per_compartment$SR_per_compartment>1, 3, 1)
+
 # iNEXT by compartment  
 iNEXT_per_compartment <- two_times %>% select_if(is.numeric)
 nn <- dim(iNEXT_per_compartment)[1]
@@ -115,7 +117,7 @@ names(iNEXT_out) <- two_times$CompartmentName
 
 coverage90_two_times <- map_df(iNEXT_out, bind_rows) %>% 
   data.frame(CompartmentName = 
-               rep(two_times$CompartmentName, times = c(3,3,1,3,1,3,3,1,3,3,3,1,3,3,3,3,3,3,1)), .)
+               rep(two_times$CompartmentName, times = rr), .)
 
 # spread it for the master table for Nada
 add2_datapercomp <- coverage90_two_times %>% 
