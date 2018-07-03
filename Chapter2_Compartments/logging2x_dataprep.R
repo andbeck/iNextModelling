@@ -27,17 +27,35 @@ twos <- compart %>%
   filter(str_detect(ForestType, "twice")) %>% 
   distinct(ForestType)
 
-
-# organise
+# organise 1x and 2x of same age, age 20 1x and primary forests
 two_times <- compart %>% 
-  filter(str_detect(ForestType, "00-05")|str_detect(ForestType, "06-15")) %>% 
+  filter(CompartmentName == "B10" |
+           CompartmentName == "B12" |
+           CompartmentName == "B14" |
+           CompartmentName == "B3" |
+           CompartmentName == "JI38B" |
+           CompartmentName == "JI39" |
+           CompartmentName == "JI40" |
+           CompartmentName == "JI42" |
+           CompartmentName == "JU31Y" |
+           CompartmentName == "JU68" |
+           CompartmentName == "JU93" |
+           CompartmentName == "PB87" |
+           CompartmentName == "UTT35" |
+           CompartmentName == "UTT41" |
+           CompartmentName == "JI52" |
+           CompartmentName == "PS52" |
+           CompartmentName == "JU100" |
+           CompartmentName == "PS26" |
+           CompartmentName == "UTT27") %>% 
   select(CompartmentName, LoggingRotation,Sp.01:Sp.27) %>%
   group_by(CompartmentName, LoggingRotation) %>%
   select_if(~!all(is.na(.))) %>% 
   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
   mutate(LoggingRotation = case_when(
     LoggingRotation == 1 ~ "once",
-    LoggingRotation == 2 ~ "twice")) %>% 
+    LoggingRotation == 2 ~ "twice",
+    is.na(LoggingRotation) ~ "primary")) %>% 
   ungroup()
 
 two_times
@@ -58,12 +76,15 @@ data_per_compartment <-
              shannon_per_compartment,
              simpson_per_compartment)
 
+data_per_compartment
+
 # iNEXT by compartment  
 iNEXT_per_compartment <- two_times %>% select_if(is.numeric)
+nn <- dim(iNEXT_per_compartment)[1]
 
 iNEXT_out <- list()
 
-for(i in 1:15){
+for(i in 1:nn){
   # get the compartment data
   tmp <- as.numeric(iNEXT_per_compartment[i,])
   # get rid of 0'
@@ -81,14 +102,13 @@ for(i in 1:15){
     {iNEXT_out[[i]] <- data.frame(m = NA, method = NA, order = NA, SC = NA, qD = NA, qD.LCL = NA, qD.UCL = NA)}
   }
 
-
 names(iNEXT_out) <- two_times$CompartmentName
 
 # build predictions of qd = 0,1,2 at 90% for each compartment in the once_twice
 
 coverage90_two_times <- map_df(iNEXT_out, bind_rows) %>% 
   data.frame(CompartmentName = 
-               rep(two_times$CompartmentName, times = c(3,3,1,3,1,3,3,1,3,1,3,3,3,3,1)), .)
+               rep(two_times$CompartmentName, times = c(3,3,1,3,1,3,3,1,3,3,3,1,3,3,3,3,3,3,1)), .)
 
 # spread it for the master table for Nada
 add2_datapercomp <- coverage90_two_times %>% 
@@ -122,3 +142,21 @@ two_times_input
 model <- iNEXT(two_times_input)
 plot(model)
 
+
+
+
+
+
+
+
+# # organise
+# two_times <- compart %>% 
+#   filter(str_detect(ForestType, "00-05")|str_detect(ForestType, "06-15")) %>% 
+#   select(CompartmentName, LoggingRotation,Sp.01:Sp.27) %>%
+#   group_by(CompartmentName, LoggingRotation) %>%
+#   select_if(~!all(is.na(.))) %>% 
+#   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
+#   mutate(LoggingRotation = case_when(
+#     LoggingRotation == 1 ~ "once",
+#     LoggingRotation == 2 ~ "twice")) %>% 
+#   ungroup()
