@@ -122,6 +122,15 @@ for(i in 1:nn){
 names(iNEXT_asympData) <- two_times$CompartmentName
 names(iNEXT_out) <- two_times$CompartmentName
 
+SR_Shan_Simp <- iNEXT_asympData[!is.na(iNEXT_asympData)] %>% 
+  do.call(rbind.data.frame, .) %>% 
+  cbind(str_split_fixed(rownames(SR_Shan_Simp), pattern = "\\.", n = Inf)) %>% 
+  rename("Compartment" = `1`, "Order" = `2`)
+
+rownames(SR_Shan_Simp) <- 1:dim(SR_Shan_Simp)[1]
+SR_Shan_Simp  
+
+write_csv(SR_Shan_Simp, path = "./Chapter2_Compartments/DataSources/SR_Shan_Simp_1x2x.csv")
 
 # build predictions of qd = 0,1,2 at 90% for each compartment in the once_twice
 
