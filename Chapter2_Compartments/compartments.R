@@ -98,8 +98,11 @@ category_use <- data.frame(category_use)
 
 # run iNEXT (it works on a list)
 # ignore warnings.
-compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
-category_mod <- iNEXT(category_use)
+compartment_mod <- iNEXT(compartment_use, q = c(0,1,2), datatype = 'abundance', nboot = 999)
+category_mod <- iNEXT(category_use, q = c(0,1,2))
+
+ggiNEXT(compartment_mod, type = 1, facet.var = "order")
+
 
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)

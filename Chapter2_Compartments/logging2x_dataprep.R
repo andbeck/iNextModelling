@@ -91,6 +91,7 @@ rr <- ifelse(data_per_compartment$SR_per_compartment>1, 3, 1)
 iNEXT_per_compartment <- two_times %>% select_if(is.numeric)
 nn <- dim(iNEXT_per_compartment)[1]
 
+iNEXT_asympData <- list()
 iNEXT_out <- list()
 
 for(i in 1:nn){
@@ -98,6 +99,13 @@ for(i in 1:nn){
   tmp <- as.numeric(iNEXT_per_compartment[i,])
   # get rid of 0'
   use <- tmp[tmp>0]
+  
+  # collect asymptotic data if possible
+  if(length(use)>1)
+  {iNEXT_asympData[[i]] <- iNEXT(use)$AsyEst}
+  else
+  {iNEXT_asympData[[i]] <- NA}
+  
   # run iNEXT via estimateD (coverage) 
   # dealing with situations where 1 species doesn't work
   # and where no species doesn't work
@@ -111,7 +119,9 @@ for(i in 1:nn){
     {iNEXT_out[[i]] <- data.frame(m = NA, method = NA, order = NA, SC = NA, qD = NA, qD.LCL = NA, qD.UCL = NA)}
   }
 
+names(iNEXT_asympData) <- two_times$CompartmentName
 names(iNEXT_out) <- two_times$CompartmentName
+
 
 # build predictions of qd = 0,1,2 at 90% for each compartment in the once_twice
 
