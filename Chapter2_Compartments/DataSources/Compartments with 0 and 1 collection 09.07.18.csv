@@ -1,0 +1,14 @@
+Once logged Compartment with 0-1 species collection,,,,,,,,
+CompartmentName,LoggingRotation,Age_Before,Age_Latest,No.transect,Total_Transect,Sp.Collection,Sp.Collection per transect,% of transects sampled
+UTT41,Once,NA,2,5,131,0,0.000,11.45038168
+B18,Once,NA,32,6,131,0,0.000,
+BT7,Once,NA,32,4,131,0,0.000,
+,,,,,,,,
+Twice logged compartments with 0-1 species collection,,,,,,,,
+CompartmentName,LoggingRotation,Age_Before,Age_Latest,No.transect,Total_Transect,Sp.Collection,Sp.Collection per transect,% of transects sampled
+B14,Twice,1980,2006,6,65,1,0.166666667,49.23076923
+JI38B,Twice,1980,2006,11,65,1,0.090909091,
+JI42,Twice,1983,2013,6,65,1,0.166666667,
+JU68,Twice,1970,2001,9,65,1,0.111111111,
+,,,,,,,,
+"Note: Once logged compartments does not have 1 collection, while Twice logged compartments does no have 0 collection",,,,,,,,
