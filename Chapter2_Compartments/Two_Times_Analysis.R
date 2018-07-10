@@ -64,6 +64,9 @@ grid.arrange(g1, g2, g3, g4, g5, g6, nrow = 3)
 comp_1x_2x <- filter(two_times_habitat, LoggingRotation == 'once' | LoggingRotation == "twice") %>% 
   filter(Age_Latest<=20)
 
+glimpse(comp_1x_2x)
+comp_1x_2x$order_0_at_90
+
 # plot it (choose metric!)
 ggplot(comp_1x_2x, aes(x = Age_Latest, y = SR_per_compartment, colour = LoggingRotation))+
   geom_point(size = 5)+
