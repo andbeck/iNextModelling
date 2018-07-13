@@ -7,13 +7,13 @@ library(heplots) # effect sizes +
 library(mvabund) # 
 library(vegan)
 
+library(tidyverse)
+
+library(GGally)
+library(broom)
 library(gridExtra) # multi-panel ggplots
 library(ggfortify) # diagnostics for models
 library(ggrepel) # nice labelling of points
-library(GGally)
-library(broom)
-library(ggalt)
-library(tidyverse)
 
 ## Step 0: data import ----
 
@@ -68,30 +68,38 @@ for (i in seq_len(age_counter)){
 # add sensible names to the list pieces
 names(compartment_input) <- unique(comp_age$CompartmentName)
 
-# Get Rid of entries with SR < 1 (iNEXT does not work without >2 species)
+# how many compartments have only 1 species? THREE
+compartment_input %>% keep(function(x) length(x)==1)
+
+# updated 2.015 iNEXT now produces estiamtes of qD = 1 when there is one species.
+# none of the plotting works.
+tmpMod <- iNEXT(compartment_input)
+
+# Get Rid of entries with SR < 1 (estimateD is not working with n = 1 species)
+# but we know the estiamte is 1.
 compartment_use <- compartment_input %>% keep(function(x) length(x)>1)
 length(compartment_use)
 
-# we are losing 3 because of only 1 species being found there
-names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
+# # we are losing 3 because of only 1 species being found there
+# names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
 
-# keep these for later adding (they won't work with iNEXT but we need the species richness = 1)
-compartment_oneTransect <- compartment_input %>% keep(function(x) length(x)==1)
+# # keep these for later adding (they won't work with iNEXT but we need the species richness = 1)
+# compartment_oneTransect <- compartment_input %>% keep(function(x) length(x)==1)
 
-# set up category based data for iNEXT
-category_use <- comp_age %>% 
-  group_by(ForestCategory) %>% 
-  select(starts_with("Sp.")) %>% 
-  summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
-
-fc <- unique(category_use$ForestCategory)
-rn <- colnames(category_use)[-1]
-  
-category_use <- data.frame(t(as.data.frame(category_use))[-1,])
-names(category_use) <- c("five","fifteen","twentyfive","forty1","not")
-category_use <- apply(category_use, 2, function(x) as.numeric(x))
-rownames(category_use) <- rn
-category_use <- data.frame(category_use)
+# # set up category based data for iNEXT
+# category_use <- comp_age %>% 
+#   group_by(ForestCategory) %>% 
+#   select(starts_with("Sp.")) %>% 
+#   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
+# 
+# fc <- unique(category_use$ForestCategory)
+# rn <- colnames(category_use)[-1]
+#   
+# category_use <- data.frame(t(as.data.frame(category_use))[-1,])
+# names(category_use) <- c("five","fifteen","twentyfive","forty1","not")
+# category_use <- apply(category_use, 2, function(x) as.numeric(x))
+# rownames(category_use) <- rn
+# category_use <- data.frame(category_use)
 
 
 #  Step 3: iNEXT modelling happens here -----
@@ -99,7 +107,8 @@ category_use <- data.frame(category_use)
 # run iNEXT (it works on a list)
 # ignore warnings.
 compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
-category_mod <- iNEXT(category_use)
+plot(compartment_mod)
+#category_mod <- iNEXT(category_use)
 
 # extra things for Nada
 #compartment_mod2 <- iNEXT(compartment_use, q = c(0,1,2), datatype = 'abundance', nboot = 999)
@@ -108,7 +117,8 @@ category_mod <- iNEXT(category_use)
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)
 # set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
-coverage_min_diversity <- estimateD(compartment_use, base = 'coverage', level = 0.9) %>% 
+
+coverage_min_diversity <- estimateD(compartment_use, "abundance", base = 'coverage', level = 0.9) %>% 
   rename(Site = site) 
 
 coverage_min_diversity_cat <- estimateD(category_use, base = 'coverage', level = 0.9) %>% 
