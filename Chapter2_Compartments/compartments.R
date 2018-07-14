@@ -1,4 +1,7 @@
 ## Nada Chapters 2 Once Logged Data Preparation ----
+###  THIS SCRIPT IS NOT IN USE ANYMORE - deprecated to 
+# ALL COMPARTMENT_iNEXT for basics
+# AND to OneTime and TwoTimes Analysis
 
 ## libraries ----
 library(iNEXT)
@@ -26,125 +29,77 @@ habitat <- read_csv('./Chapter2_Compartments/DataSources/hab_summary_rot1_27.04.
 # isolate the data on logged 1 time or unlogged
 # get category and compartment name and species
 # sort and summarise_all creates column sums
-# age a new column that combines age and name (e.g. the three compartments within each age category)
 
-comp_age <- compart %>% 
+comp_age_df <- compart %>% 
+  mutate(ForestAge = ifelse(is.na(ForestAge), 200, ForestAge)) %>% 
   filter(!str_detect(ForestType, "twice")) %>%
-  select(ForestCategory, CompartmentName, Sp.01:Sp.27) %>%
-  group_by(ForestCategory, CompartmentName) %>%
-  select_if(~!all(is.na(.))) %>% 
-  summarise_all(.funs = function(x) (sum(x, na.rm = TRUE))) %>%
-  mutate(Age_Name = paste(ForestCategory, CompartmentName, sep = ':')) %>% 
-  mutate(ActualAge = case_when(CompartmentName %in% c("UTT35", "UTT41") ~ 2,
-                               CompartmentName %in% c("PB87", "PS52") ~5,
-                               CompartmentName == "JU93" ~ 6,
-                               CompartmentName == "B12" ~ 10,
-                               CompartmentName == "JU31Y" ~ 11,
-                               CompartmentName == "JI52" ~ 20,
-                               CompartmentName == "JI4" ~ 23,
-                               CompartmentName == "B17" ~ 24,
-                               CompartmentName %in% c("B18", "B19") ~ 30,
-                               CompartmentName == "JI64" ~ 31,
-                               CompartmentName %in% c("B18", "BT7") ~ 32,
-                               CompartmentName == "JU31N" ~ 41,
-                               CompartmentName %in% c("JU100", "PS26", "UTT27") ~ 0))
+  select(ForestCategory, CompartmentName, ForestAge, Sp.01:Sp.27) %>% 
+  # create data frame
+  gather(Species, Count, -ForestCategory, - CompartmentName, - ForestAge) %>%
+  # omit NA's
+  na.omit() %>% 
+  # convert Counts to numeric
+  mutate(Count = as.numeric(Count)) %>% 
+  # set up grouping
+  group_by(ForestCategory, CompartmentName, ForestAge, Species) %>% 
+  # get totals among transect by compartment
+  summarise(Total = sum(Count, na.rm = TRUE)) %>% 
+  # ungroup
+  ungroup() %>% 
+  # select the core data
+  select(Species, CompartmentName, Total) %>% 
+  # spread out for iNEXT
+  # compartment columns, species rows
+  spread(CompartmentName, Total) %>% 
+  # replace NA's with 0 counts
+  mutate_all(.funs = funs(ifelse(is.na(.), 0, .))) %>% 
+  # convert to data frame
+  as.data.frame()
 
-# Step 2: create Age based list for iNEXT ----
+comp_age_df
 
-# for counting # 18 compartments
-age_counter<-length(comp_age$CompartmentName)
+# which compartments did we loose for having no species
+lost <- compart %>% 
+  filter(!str_detect(ForestType, "twice")) %>%
+  select(ForestCategory, CompartmentName, ForestAge, Sp.01:Sp.27) %>% 
+  # create data frame
+  gather(Species, Count, -ForestCategory, - CompartmentName, - ForestAge) %>% 
+  # group at Compartment to see totals
+  group_by(CompartmentName) %>% 
+  mutate(Count = as.numeric(Count)) %>% 
+  summarise(Total = sum(Count, na.rm = TRUE)) %>% 
+  # which ones are 0.
+  filter(Total == 0)
 
-# collection zone setup
-compartment_input<- list()
+lost # B18 BT7 UTT41
 
-# isolate the species count data for each age-compartment
-for (i in seq_len(age_counter)){
-  tmp <- as.data.frame(comp_age[i,]) # get a single compartment
-  tmp <- select(tmp, -ForestCategory, - CompartmentName, -Age_Name) # isolate the species data
-  tmp <- tmp[tmp>0] # clean away any 0's
-  compartment_input[[i]]<-tmp # assign to the list above
-}
+# organise rows and select the compartment columns
+rns <- comp_age_df$Species
+rownames(comp_age_df) <- rns
+comp_age_use <- select(comp_age_df, -Species)
 
-# add sensible names to the list pieces
-names(compartment_input) <- unique(comp_age$CompartmentName)
-
-# how many compartments have only 1 species? THREE
-compartment_input %>% keep(function(x) length(x)==1)
-
-# updated 2.015 iNEXT now produces estiamtes of qD = 1 when there is one species.
-# none of the plotting works.
-tmpMod <- iNEXT(compartment_input)
-
-# Get Rid of entries with SR < 1 (estimateD is not working with n = 1 species)
-# but we know the estiamte is 1.
-compartment_use <- compartment_input %>% keep(function(x) length(x)>1)
-length(compartment_use)
-
-# # we are losing 3 because of only 1 species being found there
-# names(compartment_input)[!names(compartment_input) %in% names(compartment_use)]
-
-# # keep these for later adding (they won't work with iNEXT but we need the species richness = 1)
-# compartment_oneTransect <- compartment_input %>% keep(function(x) length(x)==1)
-
-# # set up category based data for iNEXT
-# category_use <- comp_age %>% 
-#   group_by(ForestCategory) %>% 
-#   select(starts_with("Sp.")) %>% 
-#   summarise_all(.funs = function(x) (sum(x, na.rm = TRUE)))
-# 
-# fc <- unique(category_use$ForestCategory)
-# rn <- colnames(category_use)[-1]
-#   
-# category_use <- data.frame(t(as.data.frame(category_use))[-1,])
-# names(category_use) <- c("five","fifteen","twentyfive","forty1","not")
-# category_use <- apply(category_use, 2, function(x) as.numeric(x))
-# rownames(category_use) <- rn
-# category_use <- data.frame(category_use)
-
+glimpse(comp_age_use)
 
 #  Step 3: iNEXT modelling happens here -----
 
 # run iNEXT (it works on a list)
 # ignore warnings.
-compartment_mod <- iNEXT(compartment_use, datatype = 'abundance', nboot = 999)
+compartment_mod <- iNEXT(comp_age_use, datatype = 'abundance', nboot = 999)
 plot(compartment_mod)
-#category_mod <- iNEXT(category_use)
-
-# extra things for Nada
-#compartment_mod2 <- iNEXT(compartment_use, q = c(0,1,2), datatype = 'abundance', nboot = 999)
-#ggiNEXT(compartment_mod2, type = 1, facet.var = "order")
 
 # What we really want to do is to compute the estimate at a fixed min coverage
 # at the minimum coverage (level  = NULL)
 # set level = 0.8 for 80% for example (it will be extrapolated at anything beyond min)
 
-coverage_min_diversity <- estimateD(compartment_use, "abundance", base = 'coverage', level = 0.9) %>% 
-  rename(Site = site) 
-
-coverage_min_diversity_cat <- estimateD(category_use, base = 'coverage', level = 0.9) %>% 
-  rename(Site = site) %>% filter(order == 0)
-
-
-# visualise the results
-# feel free to create more than one version of this!
-plot(compartment_mod, type = 1)
-
-# # potentially interesting when classified
-# ggplot(coverage_min_diversity_cat, aes(x = factor(Site, 
-#                                                   levels = c("five","fifteen","twentyfive","forty1","not")), 
-#                                        y = qD, 
-#                                        ymin = qD.LCL, ymax = qD.UCL,
-#                                        group = 1))+
-#   geom_point()+geom_line()+
-#   geom_errorbar(width =0)+
-#   xlab("Time Since Last Logging") + ylab("Species Richness") +
-#   theme_bw()
+coverage_min_diversity <- estimateD(comp_age_use, "abundance", 
+                                    base = 'coverage', level = 0.8) %>% 
+  rename(Site = site)
 
 # Step 4: Collect Asymptotic estimates for downstream analyses and add habitat data ----
-diversity_data_observations <- compartment_mod$AsyEst %>% arrange(as.character(Site))
-diversity_data_coverage <- coverage_min_diversity %>% arrange(as.character(Site))
-
-cbind(diversity_data_coverage$qD, diversity_data_observations$Estimator)
+diversity_data_observations <- compartment_mod$AsyEst %>% 
+  arrange(as.character(Site))
+diversity_data_coverage <- coverage_min_diversity %>% 
+  arrange(as.character(Site))
 
 # organise the habitat data ----
 # some compartments are not represented in the iNEXT data (no species)
@@ -158,7 +113,8 @@ names(habitat_use)
 
 # adjust here the age of the unlogged: options are 200 or 100
 unlogged_age <- 200
-habitat_use$Age.of.forest <- ifelse(habitat_use$Age.of.forest==200, unlogged_age, habitat_use$Age.of.forest)
+habitat_use$Age.of.forest <- ifelse(habitat_use$Age.of.forest==200, 
+                                    unlogged_age, habitat_use$Age.of.forest)
 habitat_use$Age.of.forest
 
 df_prep <- data.frame(diversity_data_coverage, 
@@ -171,6 +127,7 @@ df_prep <- data.frame(diversity_data_coverage,
   rename(coverage = SC) %>% 
   rename(diversity_estimate = qD) %>%
   select(-m,-method, -qD.LCL, -qD.UCL)
+
 
 # ADD BACK IN THE Three Compartments with 1 SR
 one_SR <- filter(habitat2, !Site %in% levels(diversity_data_coverage$Site))
